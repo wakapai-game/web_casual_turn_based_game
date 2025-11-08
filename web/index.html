@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Casual Turn Battle</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app">
+      <header class="app__header">
+        <h1 data-i18n="game_title">Casual Turn Battle</h1>
+        <div class="app__status">
+          <span data-i18n="wins_label">Wins</span>
+          <span id="wins-count">0</span>
+          <span class="app__status-separator">/</span>
+          <span data-i18n="losses_label">Losses</span>
+          <span id="losses-count">0</span>
+        </div>
+      </header>
+
+      <main class="app__main">
+        <section id="boot-screen" class="screen screen--active">
+          <div class="screen__content">
+            <div class="loader"></div>
+            <p data-i18n="boot_loading">Loading game assets...</p>
+          </div>
+        </section>
+
+        <section id="title-screen" class="screen">
+          <div class="screen__content">
+            <div class="logo">🐉</div>
+            <div class="title-buttons">
+              <button id="btn-start" class="btn btn--primary" data-i18n="title_start">
+                Start
+              </button>
+              <button id="btn-settings" class="btn" data-i18n="title_settings">
+                Settings
+              </button>
+              <button id="btn-exit" class="btn btn--danger" data-i18n="title_exit">
+                Exit
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="battle-screen" class="screen">
+          <div class="battle">
+            <div class="battle__panels">
+              <article class="panel">
+                <h2 id="player-name">Hero</h2>
+                <div class="hp-bar">
+                  <div class="hp-bar__label">
+                    <span data-i18n="hp_label">HP</span>
+                    <span id="player-hp-text">100/100</span>
+                  </div>
+                  <div class="hp-bar__track">
+                    <div id="player-hp-bar" class="hp-bar__fill"></div>
+                  </div>
+                </div>
+              </article>
+              <article class="panel">
+                <h2 id="enemy-name">Enemy</h2>
+                <div class="hp-bar">
+                  <div class="hp-bar__label">
+                    <span data-i18n="hp_label">HP</span>
+                    <span id="enemy-hp-text">100/100</span>
+                  </div>
+                  <div class="hp-bar__track">
+                    <div id="enemy-hp-bar" class="hp-bar__fill hp-bar__fill--enemy"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <div class="battle__commands">
+              <button id="cmd-attack" class="btn btn--primary" data-i18n="cmd_attack">
+                Attack
+              </button>
+              <button id="cmd-defend" class="btn" data-i18n="cmd_defend">
+                Defend
+              </button>
+              <button id="cmd-item" class="btn" data-i18n="cmd_item">
+                Item
+              </button>
+              <div class="inventory" id="inventory-display"></div>
+            </div>
+
+            <div class="battle__log" id="battle-log" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section id="result-screen" class="screen">
+          <div class="screen__content">
+            <h2 id="result-title" data-i18n="result_title">Result</h2>
+            <p>
+              <span data-i18n="result_player">Player</span>:
+              <span id="result-player-hp">0/0</span>
+            </p>
+            <p>
+              <span data-i18n="result_enemy">Enemy</span>:
+              <span id="result-enemy-hp">0/0</span>
+            </p>
+            <div class="title-buttons">
+              <button id="btn-result-title" class="btn btn--primary" data-i18n="result_back">
+                Back to Title
+              </button>
+              <button id="btn-result-exit" class="btn btn--danger" data-i18n="title_exit">
+                Exit
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <div id="settings-dialog" class="dialog" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="dialog__content">
+          <h2 data-i18n="settings_title">Settings</h2>
+          <label class="dialog__field">
+            <span data-i18n="settings_language">Language</span>
+            <select id="settings-language">
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+            </select>
+          </label>
+          <label class="dialog__field">
+            <span data-i18n="settings_volume">Volume</span>
+            <input type="range" id="settings-volume" min="0" max="1" step="0.01" />
+          </label>
+          <div class="dialog__actions">
+            <button id="btn-settings-close" class="btn btn--primary" data-i18n="ok">
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="exit-dialog" class="dialog" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="dialog__content">
+          <h2 data-i18n="exit_title">Exit Game</h2>
+          <p data-i18n="exit_description">Thanks for playing!</p>
+          <div class="dialog__actions">
+            <button id="btn-exit-close" class="btn btn--primary" data-i18n="ok">
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>
