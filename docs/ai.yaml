@@ -1,0 +1,21 @@
+ai:
+  states:
+    - name: DecideAction
+      transitions:
+        - to: Attack
+          condition: "hp > 20"
+        - to: Defend
+          condition: "hp <= 20"
+    - name: Attack
+      transitions:
+        - to: DecideAction
+          condition: "turn_end"
+    - name: Defend
+      transitions:
+        - to: DecideAction
+          condition: "turn_end"
+  behaviours:
+    Attack:
+      description: "Enemy attacks the player. Uses damage formula."
+    Defend:
+      description: "Enemy reduces damage from the next player attack by half."

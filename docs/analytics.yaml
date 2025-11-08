@@ -1,0 +1,15 @@
+analytics:
+  enabled: true
+  events:
+    - id: "start_game"
+      description: "Triggered when the player launches the game."
+    - id: "start_battle"
+      description: "Triggered when a battle begins."
+    - id: "player_win"
+      description: "Triggered when the player wins a battle."
+    - id: "player_lose"
+      description: "Triggered when the player loses a battle."
+    - id: "button_click"
+      description: "Triggered on every UI button press."
+  consentRequired: false
+  userIdPolicy: "anonymous"

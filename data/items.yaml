@@ -1,0 +1,11 @@
+items:
+  - id: potion_small
+    name: "Small Potion"
+    type: consumable
+    healAmount: 20
+    description: "Restores 20 HP."
+  - id: potion_medium
+    name: "Medium Potion"
+    type: consumable
+    healAmount: 50
+    description: "Restores 50 HP."

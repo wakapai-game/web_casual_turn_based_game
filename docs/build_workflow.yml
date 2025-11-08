@@ -1,0 +1,26 @@
+name: verify-build
+on: [pull_request]
+jobs:
+  validate-generate-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Validate schemas
+        run: |
+          echo "Validate docs and data against schemas"
+      - name: Generate code from design
+        run: |
+          echo "Run code generation tools"
+      - name: Unity Test
+        uses: game-ci/unity-test-runner@v4
+        with:
+          unityVersion: 2022.3.40f1
+          testMode: playmode
+      - name: Build
+        uses: game-ci/unity-builder@v4
+        with:
+          targetPlatform: StandaloneWindows64
+          unityVersion: 2022.3.40f1

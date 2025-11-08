@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "player": {
+    "name": "string",
+    "maxHP": "integer",
+    "attack": "integer",
+    "defense": "integer",
+    "items": [
+      {
+        "id": "string",
+        "count": "integer"
+      }
+    ]
+  },
+  "progress": {
+    "wins": "integer",
+    "losses": "integer"
+  },
+  "settings": {
+    "language": "string",
+    "volume": "float"
+  }
+}

@@ -1,0 +1,19 @@
+enemies:
+  - id: slime
+    name: "Slime"
+    hp: 50
+    atk: 10
+    def: 5
+    ai: basic
+  - id: goblin
+    name: "Goblin"
+    hp: 70
+    atk: 15
+    def: 7
+    ai: basic
+  - id: bat
+    name: "Bat"
+    hp: 40
+    atk: 12
+    def: 3
+    ai: basic

@@ -1,0 +1,18 @@
+unity:
+  editor: "2022.3.40f1"
+  template: "urp"
+scripting:
+  backend: "il2cpp"
+  api_compat: "netstandard2.1"
+targets:
+  - "Windows"
+  - "macOS"
+  - "iOS"
+  - "Android"
+packages:
+  - name: "com.unity.inputsystem"
+    version: "1.7.0"
+  - name: "com.unity.addressables"
+    version: "1.20.3"
+quality:
+  default: "Medium"

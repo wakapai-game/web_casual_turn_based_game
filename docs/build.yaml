@@ -1,0 +1,25 @@
+build:
+  platforms:
+    android:
+      packageName: com.example.turnbasedgame
+      minSdk: 24
+      targetSdk: 34
+      scriptingDefineSymbols:
+        - MOBILE
+        - URP
+    ios:
+      bundleIdentifier: com.example.turnbasedgame
+      minimumOSVersion: 12.0
+      scriptingDefineSymbols:
+        - MOBILE
+        - URP
+    windows:
+      productName: TurnBasedGame
+      scriptingDefineSymbols:
+        - PC
+        - URP
+    macos:
+      productName: TurnBasedGame
+      scriptingDefineSymbols:
+        - PC
+        - URP

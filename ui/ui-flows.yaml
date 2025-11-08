@@ -1,0 +1,16 @@
+ui:
+  canvases:
+    - name: Title
+      scaler: ScaleWithScreenSize
+      referenceResolution: 1920x1080
+    - name: Battle
+      scaler: ScaleWithScreenSize
+      referenceResolution: 1920x1080
+    - name: Result
+      scaler: ScaleWithScreenSize
+      referenceResolution: 1920x1080
+  flows:
+    - { from: Title, to: Battle, trigger: StartButton }
+    - { from: Battle, to: Result, trigger: PlayerWin }
+    - { from: Battle, to: Result, trigger: PlayerLose }
+    - { from: Result, to: Title, trigger: TitleButton }

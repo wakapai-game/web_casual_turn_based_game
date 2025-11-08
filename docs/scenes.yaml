@@ -1,0 +1,36 @@
+scenes:
+  - name: Boot
+    buildIndex: 0
+    load: Single
+    additive: []
+  - name: Title
+    buildIndex: 1
+    load: Single
+    additive: []
+  - name: Battle
+    buildIndex: 2
+    load: Single
+    additive: []
+  - name: Result
+    buildIndex: 3
+    load: Single
+    additive: []
+prefabs:
+  - id: Hero
+    path: Assets/Prefabs/Hero.prefab
+  - id: Enemy_Slime
+    path: Assets/Prefabs/Enemy_Slime.prefab
+  - id: Enemy_Goblin
+    path: Assets/Prefabs/Enemy_Goblin.prefab
+  - id: Enemy_Bat
+    path: Assets/Prefabs/Enemy_Bat.prefab
+addressables:
+  groups:
+    - name: UI
+      entries:
+        - UI/Common
+        - UI/Battle
+    - name: Audio
+      entries:
+        - Audio/BGM
+        - Audio/SE

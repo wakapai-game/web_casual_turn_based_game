@@ -1,0 +1,12 @@
+loop:
+  states:
+    - Boot
+    - Title
+    - Battle
+    - Result
+  transitions:
+    - { from: Boot, to: Title, trigger: AppStart }
+    - { from: Title, to: Battle, trigger: StartGame }
+    - { from: Battle, to: Result, trigger: PlayerWin }
+    - { from: Battle, to: Result, trigger: PlayerLose }
+    - { from: Result, to: Title, trigger: ReturnToTitle }

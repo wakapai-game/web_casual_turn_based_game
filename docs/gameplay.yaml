@@ -1,0 +1,38 @@
+player:
+  name: "Hero"
+  maxHP: 100
+  attack: 20
+  defense: 10
+  items:
+    - id: potion_small
+      healAmount: 20
+enemies:
+  - id: slime
+    name: "Slime"
+    hp: 50
+    attack: 10
+    defense: 5
+    exp: 10
+  - id: goblin
+    name: "Goblin"
+    hp: 70
+    attack: 15
+    defense: 7
+    exp: 15
+  - id: bat
+    name: "Bat"
+    hp: 40
+    attack: 12
+    defense: 3
+    exp: 12
+turnRules:
+  firstTurn: player
+  actions:
+    attack:
+      description: "Deal damage equal to (attack - defense) but at least 1"
+    defend:
+      description: "Halve incoming damage on the next enemy attack"
+    item:
+      description: "Use an item from inventory"
+damageCalculation:
+  formula: "max(1, attacker.attack - defender.defense)"

@@ -1,0 +1,10 @@
+clip_id,filename,loop,start,end,mixer_group
+bgm_title,bgm_title.wav,true,0,120,Music
+bgm_battle,bgm_battle.wav,true,0,120,Music
+bgm_victory,fanfares_victory.wav,false,0,10,Music
+bgm_defeat,fanfares_defeat.wav,false,0,10,Music
+se_attack,attack.wav,false,0,0,SFX
+se_defend,defend.wav,false,0,0,SFX
+se_item,use_item.wav,false,0,0,SFX
+se_hit,hit.wav,false,0,0,SFX
+se_ui_click,click.wav,false,0,0,SFX

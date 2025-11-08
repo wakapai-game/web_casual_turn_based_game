@@ -1,0 +1,9 @@
+stages:
+  - id: stage1
+    name: "Forest Clearing"
+    enemies:
+      - slime
+      - goblin
+    waves:
+      - { count: 1, enemy: slime }
+      - { count: 1, enemy: goblin }

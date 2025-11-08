@@ -1,0 +1,11 @@
+key,text,context
+TITLE_START,スタート,Start button label
+TITLE_EXIT,終了,Exit button label
+CMD_ATTACK,こうげき,Attack command
+CMD_DEFEND,ぼうぎょ,Defend command
+CMD_ITEM,アイテム,Item command
+RESULT_VICTORY,しょうり,Displayed on victory
+RESULT_DEFEAT,はいぼく,Displayed on defeat
+HP_LABEL,HP,Health points label
+MENU_BACK,もどる,Back to previous menu
+OK,OK,Confirmation button

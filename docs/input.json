@@ -1,0 +1,95 @@
+{
+  "maps": [
+    {
+      "name": "Menu",
+      "actions": [
+        {
+          "name": "Navigate",
+          "type": "Value",
+          "bindings": [
+            {
+              "path": "<Gamepad>/dpad"
+            },
+            {
+              "path": "<Keyboard>/arrowKeys"
+            },
+            {
+              "path": "<Joystick>/stick"
+            }
+          ]
+        },
+        {
+          "name": "Submit",
+          "type": "Button",
+          "bindings": [
+            {
+              "path": "<Gamepad>/buttonSouth"
+            },
+            {
+              "path": "<Keyboard>/enter"
+            },
+            {
+              "path": "<Keyboard>/space"
+            }
+          ]
+        },
+        {
+          "name": "Cancel",
+          "type": "Button",
+          "bindings": [
+            {
+              "path": "<Gamepad>/buttonEast"
+            },
+            {
+              "path": "<Keyboard>/escape"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Battle",
+      "actions": [
+        {
+          "name": "SelectCommand",
+          "type": "Button",
+          "bindings": [
+            {
+              "path": "<Gamepad>/buttonSouth"
+            },
+            {
+              "path": "<Keyboard>/enter"
+            },
+            {
+              "path": "<Keyboard>/space"
+            }
+          ]
+        },
+        {
+          "name": "NavigateCommand",
+          "type": "Value",
+          "bindings": [
+            {
+              "path": "<Gamepad>/dpad"
+            },
+            {
+              "path": "<Keyboard>/arrowKeys"
+            }
+          ]
+        },
+        {
+          "name": "Pause",
+          "type": "Button",
+          "bindings": [
+            {
+              "path": "<Gamepad>/start"
+            },
+            {
+              "path": "<Keyboard>/escape"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
