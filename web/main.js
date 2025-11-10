@@ -477,6 +477,7 @@ class GameApp {
     this.labels.battleLog.innerHTML = "";
     this.updateHpDisplay();
     this.updateInventoryDisplay();
+    this.setCommandsEnabled(true);
     this.setScreen("Battle");
     this.logSystem(this.localization.t("log_enemy_appears", { enemy: this.enemy.name }));
   }
