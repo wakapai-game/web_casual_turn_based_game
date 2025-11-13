@@ -153,3 +153,42 @@
 - `multiplier`値は`1.5`（弱点）、`1.0`（等倍／`defaultMultiplier`で定義）、`0.5`（耐性）の3値のみを使用します。これによりゲームコード側は浮動小数比較を避け、`switch`/`dictionary`で即時参照できます。
 - ローカライズ名とアイコンキーを`elements`配列が提供するため、UIやバトルログで同じデータを共有できます。
 - 将来属性を追加する場合も、このJSONにID・相性・UI情報を追加し、上表を同期するだけで済みます。
+
+## データ検証と受け入れ基準
+`data/monsters.json`と`data/moves.json`は実装開始前に一括でレビューし、`data/types.json`と整合が取れている状態を保証します。以下の手順と基準を守ることで、実装チームが安全にデータを取り込み、テストケースを自動生成できます。
+
+### 検証ステップ
+1. **JSONリント** – `npm exec jsonlint -q data/monsters.json`や`python -m json.tool data/moves.json > /dev/null`で構文チェックを行い、2スペースインデントを維持します。
+2. **属性クロスチェック** – モンスターにも`element`フィールドを追加し、ムーブの`element`と合わせて`types.json`の`elements[].id`に含まれるIDのみを採用します。以下のようなスクリプトで差異を検出します。
+
+```bash
+python - <<'PY'
+from pathlib import Path
+import json
+
+types = {e["id"] for e in json.loads(Path("data/types.json").read_text())["elements"]}
+monsters = json.loads(Path("data/monsters.json").read_text())["monsters"]
+moves = json.loads(Path("data/moves.json").read_text())["moves"]
+
+def check(label, rows):
+    missing = sorted({row["element"] for row in rows} - types)
+    if missing:
+        raise SystemExit(f"{label} uses undefined elements: {missing}")
+
+check("monsters", monsters)
+check("moves", moves)
+print("element ids OK")
+PY
+```
+
+3. **サンプルロードスクリプト** – データチームがUnityやツールチェーンに渡す前に`python tools/load_samples.py --dataset monsters`（仮）などで`dataclasses`にマッピングし、全レコードが`hp > 0`や`stCost >= 0`といったビジネスロジック条件を満たすか確認します。上記Pythonスニペットを`tools/validate_data.py`としてバージョン管理し、CIから`python tools/validate_data.py --all`を呼び出してリグレッションを防ぎます。
+
+### 受け入れ基準
+- **エントリー数** – `monsters.json`は12体以上、`moves.json`は24個以上のムーブを収録し、チュートリアル〜ミッドゲームまでの敵・行動バリエーションを確保します。
+- **属性カバレッジ** – `types.json`に列挙された8属性それぞれについて、モンスターは最低1体、ムーブは物理／魔法／支援のいずれかで最低1件ずつ存在すること。欠けている属性がある場合はリリースをブロックします。
+- **スキーマ準拠** – 本ドキュメントで定義したキー順・型（整数、列挙値、文字列長など）に沿うJSON Schema（`docs/save_schema.json`を参考に派生）を用意し、CIで`npm exec ajv -s schema/monsters.schema.json -d data/monsters.json`のように静的検証します。
+
+### ドキュメント更新
+- データセットが確定したタイミングで`data/README.md`を追加・更新し、各JSONの目的、検証コマンド、CIフック名、生成スクリプトを記載します。
+- `docs/tests.yaml`にもデータ検証チェックリストを追記してQAが数値基準（最小件数や属性網羅）を確認できるようにします。
+- 追加した`tools/validate_data.py`や関連シェルスクリプトの使い方を`readme.txt`の「開発者向け」節でリンクし、オンボーディングを容易にします。
