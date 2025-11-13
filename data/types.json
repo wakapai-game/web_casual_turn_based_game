@@ -1,81 +1,27 @@
 {
   "elements": [
-    {
-      "id": "fire",
-      "name": {
-        "ja": "火焔",
-        "en": "Fire"
-      },
-      "icon": "icon_element_fire"
-    },
-    {
-      "id": "water",
-      "name": {
-        "ja": "水流",
-        "en": "Water"
-      },
-      "icon": "icon_element_water"
-    },
-    {
-      "id": "wind",
-      "name": {
-        "ja": "疾風",
-        "en": "Wind"
-      },
-      "icon": "icon_element_wind"
-    },
-    {
-      "id": "earth",
-      "name": {
-        "ja": "大地",
-        "en": "Earth"
-      },
-      "icon": "icon_element_earth"
-    },
-    {
-      "id": "thunder",
-      "name": {
-        "ja": "雷鳴",
-        "en": "Thunder"
-      },
-      "icon": "icon_element_thunder"
-    },
-    {
-      "id": "ice",
-      "name": {
-        "ja": "氷結",
-        "en": "Ice"
-      },
-      "icon": "icon_element_ice"
-    },
-    {
-      "id": "light",
-      "name": {
-        "ja": "聖光",
-        "en": "Light"
-      },
-      "icon": "icon_element_light"
-    },
-    {
-      "id": "dark",
-      "name": {
-        "ja": "幽闇",
-        "en": "Dark"
-      },
-      "icon": "icon_element_dark"
-    }
+    { "id": "fire", "name": { "ja": "火焔", "en": "Fire" }, "icon": "icon_element_fire" },
+    { "id": "water", "name": { "ja": "水流", "en": "Water" }, "icon": "icon_element_water" },
+    { "id": "wind", "name": { "ja": "疾風", "en": "Wind" }, "icon": "icon_element_wind" },
+    { "id": "earth", "name": { "ja": "大地", "en": "Earth" }, "icon": "icon_element_earth" },
+    { "id": "thunder", "name": { "ja": "雷鳴", "en": "Thunder" }, "icon": "icon_element_thunder" },
+    { "id": "ice", "name": { "ja": "氷結", "en": "Ice" }, "icon": "icon_element_ice" },
+    { "id": "light", "name": { "ja": "聖光", "en": "Light" }, "icon": "icon_element_light" },
+    { "id": "dark", "name": { "ja": "幽闇", "en": "Dark" }, "icon": "icon_element_dark" }
   ],
   "effectiveness": [
     { "attacker": "fire", "defender": "ice", "multiplier": 1.5 },
     { "attacker": "fire", "defender": "water", "multiplier": 0.5 },
     { "attacker": "water", "defender": "fire", "multiplier": 1.5 },
+    { "attacker": "water", "defender": "earth", "multiplier": 1.5 },
     { "attacker": "water", "defender": "thunder", "multiplier": 0.5 },
+    { "attacker": "earth", "defender": "water", "multiplier": 0.5 },
     { "attacker": "wind", "defender": "earth", "multiplier": 1.5 },
     { "attacker": "wind", "defender": "ice", "multiplier": 0.5 },
-    { "attacker": "earth", "defender": "thunder", "multiplier": 1.5 },
     { "attacker": "earth", "defender": "wind", "multiplier": 0.5 },
-    { "attacker": "thunder", "defender": "water", "multiplier": 1.5 },
+    { "attacker": "earth", "defender": "thunder", "multiplier": 1.5 },
     { "attacker": "thunder", "defender": "earth", "multiplier": 0.5 },
+    { "attacker": "thunder", "defender": "water", "multiplier": 1.5 },
     { "attacker": "ice", "defender": "wind", "multiplier": 1.5 },
     { "attacker": "ice", "defender": "fire", "multiplier": 0.5 },
     { "attacker": "light", "defender": "dark", "multiplier": 1.5 },

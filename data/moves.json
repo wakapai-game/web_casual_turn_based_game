@@ -1,0 +1,31 @@
+{
+  "moves": [
+    { "id": "neutral_guard", "name": "ガード", "type": "support", "power": 0, "stCost": 0, "element": "neutral", "hits": 0 },
+    { "id": "neutral_quick_slash", "name": "クイックスラッシュ", "type": "physical", "power": 16, "stCost": 8, "element": "neutral", "hits": 2 },
+    { "id": "neutral_focus_shot", "name": "集中射撃", "type": "magical", "power": 18, "stCost": 10, "element": "neutral", "hits": 1 },
+    { "id": "fire_ember_jab", "name": "エンバージャブ", "type": "physical", "power": 22, "stCost": 10, "element": "fire", "hits": 1 },
+    { "id": "fire_blaze_wave", "name": "ブレイズウェーブ", "type": "magical", "power": 28, "stCost": 16, "element": "fire", "hits": 1 },
+    { "id": "fire_cauterize", "name": "カウタライズ", "type": "support", "power": 0, "stCost": 12, "element": "fire", "hits": 0 },
+    { "id": "water_aqua_cleave", "name": "アクアクリーヴ", "type": "physical", "power": 20, "stCost": 12, "element": "water", "hits": 1 },
+    { "id": "water_tidal_hex", "name": "タイダルヘックス", "type": "magical", "power": 24, "stCost": 14, "element": "water", "hits": 2 },
+    { "id": "water_mist_shell", "name": "ミストシェル", "type": "support", "power": 0, "stCost": 10, "element": "water", "hits": 0 },
+    { "id": "wind_gale_edge", "name": "ゲイルエッジ", "type": "physical", "power": 18, "stCost": 8, "element": "wind", "hits": 2 },
+    { "id": "wind_storm_lance", "name": "ストームランス", "type": "magical", "power": 26, "stCost": 16, "element": "wind", "hits": 1 },
+    { "id": "wind_tailwind", "name": "テイルウィンド", "type": "support", "power": 0, "stCost": 12, "element": "wind", "hits": 0 },
+    { "id": "earth_stone_crash", "name": "ストーンクラッシュ", "type": "physical", "power": 26, "stCost": 18, "element": "earth", "hits": 1 },
+    { "id": "earth_quake_orb", "name": "クエイクオーブ", "type": "magical", "power": 22, "stCost": 15, "element": "earth", "hits": 3 },
+    { "id": "earth_bulwark", "name": "アースブルワーク", "type": "support", "power": 0, "stCost": 14, "element": "earth", "hits": 0 },
+    { "id": "thunder_spark_pounce", "name": "スパークパウンス", "type": "physical", "power": 24, "stCost": 14, "element": "thunder", "hits": 1 },
+    { "id": "thunder_arc_burst", "name": "アークバースト", "type": "magical", "power": 27, "stCost": 17, "element": "thunder", "hits": 2 },
+    { "id": "thunder_overload_screen", "name": "オーバーロードスクリーン", "type": "support", "power": 0, "stCost": 13, "element": "thunder", "hits": 0 },
+    { "id": "ice_crystal_fang", "name": "クリスタルファング", "type": "physical", "power": 19, "stCost": 11, "element": "ice", "hits": 2 },
+    { "id": "ice_blizzard_chain", "name": "ブリザードチェイン", "type": "magical", "power": 25, "stCost": 16, "element": "ice", "hits": 2 },
+    { "id": "ice_mirror_mist", "name": "ミラーミスト", "type": "support", "power": 0, "stCost": 12, "element": "ice", "hits": 0 },
+    { "id": "light_radiant_cut", "name": "ラディアントカット", "type": "physical", "power": 24, "stCost": 14, "element": "light", "hits": 1 },
+    { "id": "light_sunbeam", "name": "サンビーム", "type": "magical", "power": 27, "stCost": 18, "element": "light", "hits": 1 },
+    { "id": "light_blessing_pulse", "name": "ブレッシングパルス", "type": "support", "power": 0, "stCost": 15, "element": "light", "hits": 0 },
+    { "id": "dark_night_blade", "name": "ナイトブレード", "type": "physical", "power": 23, "stCost": 12, "element": "dark", "hits": 1 },
+    { "id": "dark_void_surge", "name": "ヴォイドサージ", "type": "magical", "power": 29, "stCost": 20, "element": "dark", "hits": 2 },
+    { "id": "dark_veil_step", "name": "ヴェールステップ", "type": "support", "power": 0, "stCost": 13, "element": "dark", "hits": 0 }
+  ]
+}
