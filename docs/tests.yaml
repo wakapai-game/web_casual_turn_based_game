@@ -3,6 +3,10 @@ acceptance:
     - cold_boot_under_ms: 3000
     - crash_free_rate: 100
     - scenes_load_all_ok: true
+    - monsters_entries_min: 12
+    - moves_entries_min: 24
+    - type_elements_count: 8
+    - data_validation_script: "python tools/validate_data.py --all"
 tests:
   - name: "コールドブートテスト"
     description: "ゲームが3秒以内にタイトル画面まで起動できるか確認します。"
@@ -31,3 +35,13 @@ tests:
     expected:
       - "リザルト画面に勝敗が正しく表示されること。"
       - "エラーなくタイトル画面に遷移すること。"
+  - name: "データセット整合性検証"
+    description: "docs/vision.mdで定義したモンスター／ムーブ／属性データ仕様に対して、JSON構造とエントリー数、属性網羅を確認します。"
+    steps:
+      - "`npm exec jsonlint -q data/monsters.json`と`data/moves.json`を実行し、構文エラーがないことを確認します。"
+      - "`python tools/validate_data.py --all`を実行し、モンスター12体以上、ムーブ24件以上、属性8種類すべてに対するモンスター＆ムーブの存在を検証します。"
+      - "`data/types.json`の`effectiveness`テーブルが火→氷、水→火/土、風→土、土→雷、雷→水、氷→風、光↔闇の関係を1.5/0.5倍率で持つことをレビューします。"
+      - "検証結果をQAログに記録し、`docs/tests.yaml`の受け入れ基準を満たしているか承認します。"
+    expected:
+      - "全コマンドが成功し、未定義の属性や不足エントリーがないこと。"
+      - "属性相性の倍率が1.5 / 1.0 / 0.5のいずれかに限定されていること。"
