@@ -7,6 +7,8 @@ acceptance:
     - moves_entries_min: 24
     - type_elements_count: 8
     - data_validation_script: "python tools/validate_data.py --all"
+    - frontline_swap_flow: "Players can execute voluntary swaps and observe UI feedback."
+    - backline_st_recovery: "Backline members regenerate ST each round as per gameplay.yaml."
 tests:
   - name: "コールドブートテスト"
     description: "ゲームが3秒以内にタイトル画面まで起動できるか確認します。"
@@ -27,6 +29,17 @@ tests:
     expected:
       - "クラッシュや例外がないこと。"
       - "HP表示が正しく更新されること。"
+  - name: "前衛・後衛交代テスト"
+    description: "交代コマンドと強制交代の挙動、UI表示、STコストを検証します。"
+    steps:
+      - "バトル開始後、前衛のSTを10以上残した状態で交代を選択し、モーダルで候補が表示されることを確認します。"
+      - "後衛をタップして前衛に出すと、交代演出とfrontIndex更新ログが表示され、ターンが消費されることを確認します。"
+      - "前衛のHPを0にして強制交代させ、赤バナーとテキストログに理由が表示されることを確認します。"
+      - "後衛に下がったモンスターが2ターン経過後にSTが+3ずつ回復することを確認します。"
+    expected:
+      - "交代モーダル内でST不足のモンスターはグレーアウトすること。"
+      - "自発交代は10ST消費し、強制交代はST消費なしで即時発動すること。"
+      - "後衛ST回復値がゲームプレイ仕様（docs/gameplay.yamlのbacklineRecovery）に一致すること。"
   - name: "リザルトからタイトルへの遷移テスト"
     description: "リザルト画面からタイトル画面へ正しく戻れるか確認します。"
     steps:
