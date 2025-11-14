@@ -1,18 +1,180 @@
 {
   "monsters": [
-    { "id": "mon_flame_drake", "name": "フレイムドレイク", "hp": 96, "st": 28, "atk": 19, "def": 11, "mag": 17, "spd": 12, "type": "fire" },
-    { "id": "mon_tide_stalker", "name": "タイドストーカー", "hp": 88, "st": 30, "atk": 16, "def": 12, "mag": 18, "spd": 11, "type": "water" },
-    { "id": "mon_gale_rogue", "name": "ゲイルローグ", "hp": 72, "st": 26, "atk": 17, "def": 9, "mag": 14, "spd": 18, "type": "wind" },
-    { "id": "mon_terra_guardian", "name": "テラガーディアン", "hp": 110, "st": 24, "atk": 18, "def": 19, "mag": 10, "spd": 7, "type": "earth" },
-    { "id": "mon_storm_jaguar", "name": "ストームジャガー", "hp": 84, "st": 32, "atk": 20, "def": 10, "mag": 15, "spd": 16, "type": "thunder" },
-    { "id": "mon_frost_wisp", "name": "フロストウィスプ", "hp": 70, "st": 25, "atk": 13, "def": 8, "mag": 20, "spd": 15, "type": "ice" },
-    { "id": "mon_radiant_valkyrie", "name": "ラディアントヴァルキリー", "hp": 92, "st": 29, "atk": 18, "def": 13, "mag": 19, "spd": 14, "type": "light" },
-    { "id": "mon_dusk_wraith", "name": "ダスクレイス", "hp": 80, "st": 27, "atk": 17, "def": 11, "mag": 21, "spd": 13, "type": "dark" },
-    { "id": "mon_magma_tortoise", "name": "マグマトータス", "hp": 118, "st": 22, "atk": 16, "def": 21, "mag": 12, "spd": 6, "type": "fire" },
-    { "id": "mon_ripple_siren", "name": "リップルセイレーン", "hp": 76, "st": 31, "atk": 14, "def": 9, "mag": 22, "spd": 17, "type": "water" },
-    { "id": "mon_skydancer", "name": "スカイダンサー", "hp": 66, "st": 28, "atk": 15, "def": 8, "mag": 16, "spd": 20, "type": "wind" },
-    { "id": "mon_quake_brute", "name": "クエイクブルート", "hp": 104, "st": 23, "atk": 21, "def": 17, "mag": 9, "spd": 9, "type": "earth" },
-    { "id": "mon_ion_strider", "name": "イオンストライダー", "hp": 82, "st": 30, "atk": 18, "def": 12, "mag": 18, "spd": 15, "type": "thunder" },
-    { "id": "mon_crystal_mistress", "name": "クリスタルミストレス", "hp": 78, "st": 27, "atk": 12, "def": 10, "mag": 23, "spd": 14, "type": "ice" }
+    {
+      "id": "mon_flame_drake",
+      "name": "フレイムドレイク",
+      "hp": 96,
+      "st": 28,
+      "atk": 19,
+      "def": 11,
+      "mag": 17,
+      "spd": 12,
+      "type": "fire"
+    },
+    {
+      "id": "mon_magma_tortoise",
+      "name": "マグマトータス",
+      "hp": 118,
+      "st": 22,
+      "atk": 16,
+      "def": 21,
+      "mag": 12,
+      "spd": 6,
+      "type": "fire"
+    },
+    {
+      "id": "mon_tide_stalker",
+      "name": "タイドストーカー",
+      "hp": 88,
+      "st": 30,
+      "atk": 16,
+      "def": 12,
+      "mag": 18,
+      "spd": 11,
+      "type": "water"
+    },
+    {
+      "id": "mon_ripple_siren",
+      "name": "リップルセイレーン",
+      "hp": 76,
+      "st": 31,
+      "atk": 14,
+      "def": 9,
+      "mag": 22,
+      "spd": 17,
+      "type": "water"
+    },
+    {
+      "id": "mon_gale_rogue",
+      "name": "ゲイルローグ",
+      "hp": 72,
+      "st": 26,
+      "atk": 17,
+      "def": 9,
+      "mag": 14,
+      "spd": 18,
+      "type": "wind"
+    },
+    {
+      "id": "mon_skydancer",
+      "name": "スカイダンサー",
+      "hp": 66,
+      "st": 28,
+      "atk": 15,
+      "def": 8,
+      "mag": 16,
+      "spd": 20,
+      "type": "wind"
+    },
+    {
+      "id": "mon_terra_guardian",
+      "name": "テラガーディアン",
+      "hp": 110,
+      "st": 24,
+      "atk": 18,
+      "def": 19,
+      "mag": 10,
+      "spd": 7,
+      "type": "earth"
+    },
+    {
+      "id": "mon_quake_brute",
+      "name": "クエイクブルート",
+      "hp": 104,
+      "st": 23,
+      "atk": 21,
+      "def": 17,
+      "mag": 9,
+      "spd": 9,
+      "type": "earth"
+    },
+    {
+      "id": "mon_storm_jaguar",
+      "name": "ストームジャガー",
+      "hp": 84,
+      "st": 32,
+      "atk": 20,
+      "def": 10,
+      "mag": 15,
+      "spd": 16,
+      "type": "thunder"
+    },
+    {
+      "id": "mon_ion_strider",
+      "name": "イオンストライダー",
+      "hp": 82,
+      "st": 30,
+      "atk": 18,
+      "def": 12,
+      "mag": 18,
+      "spd": 15,
+      "type": "thunder"
+    },
+    {
+      "id": "mon_frost_wisp",
+      "name": "フロストウィスプ",
+      "hp": 70,
+      "st": 25,
+      "atk": 13,
+      "def": 8,
+      "mag": 20,
+      "spd": 15,
+      "type": "ice"
+    },
+    {
+      "id": "mon_crystal_mistress",
+      "name": "クリスタルミストレス",
+      "hp": 78,
+      "st": 27,
+      "atk": 12,
+      "def": 10,
+      "mag": 23,
+      "spd": 14,
+      "type": "ice"
+    },
+    {
+      "id": "mon_radiant_valkyrie",
+      "name": "ラディアントヴァルキリー",
+      "hp": 92,
+      "st": 29,
+      "atk": 18,
+      "def": 13,
+      "mag": 19,
+      "spd": 14,
+      "type": "light"
+    },
+    {
+      "id": "mon_lumen_sentinel",
+      "name": "ルーメンセンチネル",
+      "hp": 88,
+      "st": 27,
+      "atk": 17,
+      "def": 15,
+      "mag": 20,
+      "spd": 13,
+      "type": "light"
+    },
+    {
+      "id": "mon_dusk_wraith",
+      "name": "ダスクレイス",
+      "hp": 80,
+      "st": 27,
+      "atk": 17,
+      "def": 11,
+      "mag": 21,
+      "spd": 13,
+      "type": "dark"
+    },
+    {
+      "id": "mon_abyssal_razor",
+      "name": "アビサルレイザー",
+      "hp": 86,
+      "st": 28,
+      "atk": 19,
+      "def": 12,
+      "mag": 18,
+      "spd": 15,
+      "type": "dark"
+    }
   ]
 }
