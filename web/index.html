@@ -46,31 +46,54 @@
 
         <section id="battle-screen" class="screen">
           <div class="battle">
-            <div class="battle__panels">
-              <article class="panel">
-                <h2 id="player-name">Hero</h2>
-                <div class="hp-bar">
-                  <div class="hp-bar__label">
-                    <span data-i18n="hp_label">HP</span>
-                    <span id="player-hp-text">100/100</span>
+            <div class="battle__parties">
+              <section class="party party--player">
+                <header class="party__header">
+                  <h2 id="player-party-label" data-i18n="player_party_label">Player Party</h2>
+                </header>
+                <div class="party__front-card" id="player-front-card">
+                  <div class="party__front-name" id="player-front-name">-</div>
+                  <div class="gauge">
+                    <div class="gauge__label">
+                      <span data-i18n="hp_label">HP</span>
+                      <span id="player-front-hp-text">0/0</span>
+                    </div>
+                    <div class="gauge__track">
+                      <div id="player-front-hp-bar" class="gauge__fill"></div>
+                    </div>
                   </div>
-                  <div class="hp-bar__track">
-                    <div id="player-hp-bar" class="hp-bar__fill"></div>
+                  <div class="gauge gauge--st">
+                    <div class="gauge__label">
+                      <span data-i18n="st_label">ST</span>
+                      <span id="player-front-st-text">0/0</span>
+                    </div>
+                    <div class="gauge__track gauge__track--st">
+                      <div id="player-front-st-bar" class="gauge__fill gauge__fill--st"></div>
+                    </div>
+                  </div>
+                  <div class="party__traits" id="player-front-traits"></div>
+                </div>
+                <div class="party__backline" id="player-backline"></div>
+              </section>
+
+              <section class="party party--enemy">
+                <header class="party__header">
+                  <h2 id="enemy-party-label" data-i18n="enemy_party_label">Enemy Party</h2>
+                </header>
+                <div class="party__front-card party__front-card--enemy" id="enemy-front-card">
+                  <div class="party__front-name" id="enemy-front-name">-</div>
+                  <div class="gauge">
+                    <div class="gauge__label">
+                      <span data-i18n="hp_label">HP</span>
+                      <span id="enemy-front-hp-text">0/0</span>
+                    </div>
+                    <div class="gauge__track">
+                      <div id="enemy-front-hp-bar" class="gauge__fill gauge__fill--enemy"></div>
+                    </div>
                   </div>
                 </div>
-              </article>
-              <article class="panel">
-                <h2 id="enemy-name">Enemy</h2>
-                <div class="hp-bar">
-                  <div class="hp-bar__label">
-                    <span data-i18n="hp_label">HP</span>
-                    <span id="enemy-hp-text">100/100</span>
-                  </div>
-                  <div class="hp-bar__track">
-                    <div id="enemy-hp-bar" class="hp-bar__fill hp-bar__fill--enemy"></div>
-                  </div>
-                </div>
-              </article>
+                <div class="party__backline party__backline--enemy" id="enemy-backline"></div>
+              </section>
             </div>
 
             <div class="battle__commands">
@@ -83,24 +106,36 @@
               <button id="cmd-item" class="btn" data-i18n="cmd_item">
                 Item
               </button>
+              <button id="cmd-swap" class="btn" data-i18n="cmd_swap">
+                Swap
+              </button>
               <div class="inventory" id="inventory-display"></div>
             </div>
 
             <div class="battle__log" id="battle-log" aria-live="polite"></div>
+          </div>
+          <div id="swap-panel" class="swap-panel" aria-hidden="true" role="dialog">
+            <div class="swap-panel__content">
+              <h3 data-i18n="swap_title">Choose a backliner</h3>
+              <div id="swap-candidates" class="swap-panel__list"></div>
+              <button id="btn-swap-cancel" class="btn" data-i18n="swap_cancel">Cancel</button>
+            </div>
           </div>
         </section>
 
         <section id="result-screen" class="screen">
           <div class="screen__content">
             <h2 id="result-title" data-i18n="result_title">Result</h2>
-            <p>
-              <span data-i18n="result_player">Player</span>:
-              <span id="result-player-hp">0/0</span>
-            </p>
-            <p>
-              <span data-i18n="result_enemy">Enemy</span>:
-              <span id="result-enemy-hp">0/0</span>
-            </p>
+            <div class="result__parties">
+              <div class="result__party">
+                <h3 data-i18n="result_player_party">Player Party</h3>
+                <ul id="result-player-party" class="result__list"></ul>
+              </div>
+              <div class="result__party">
+                <h3 data-i18n="result_enemy_party">Enemy Party</h3>
+                <ul id="result-enemy-party" class="result__list"></ul>
+              </div>
+            </div>
             <div class="title-buttons">
               <button id="btn-result-title" class="btn btn--primary" data-i18n="result_back">
                 Back to Title
