@@ -9,7 +9,57 @@ acceptance:
     - data_validation_script: "python tools/validate_data.py --all"
     - frontline_swap_flow: "Players can execute voluntary swaps and observe UI feedback."
     - backline_st_recovery: "Backline members regenerate ST each round as per gameplay.yaml."
+    - party_three_member_support: true
+    - party_initialization_three_slots: "Each player party initializes with one front and two back slots populated from save data."
+    - swap_button_interaction_logged: "Swap modal disables fainted monsters and logs selection/validation steps."
+    - defeat_all_members_loss: "Losing all three members immediately routes to defeat handling."
+    - hp_st_visibility_rules: "Player HP/ST visible per member, enemy HPのみ（バーのみ）でSTは非表示を維持。"
 tests:
+  - name: "パーティー初期化テスト"
+    description: "3体パーティーが前衛1・後衛2で初期化され、UI・ステータスが正しく同期されるか確認します。"
+    steps:
+      - "タイトルからバトルを開始し、初期配置で3体が並んでいることを確認します。"
+      - "前衛パネルにHP/ST数値、後衛パネルにHPバーとST回復アイコンが表示されることを確認します。"
+      - "デバッグログまたはステータス画面でfrontIndex=0, backIndices=[1,2]となっていることを確認します。"
+    expected:
+      - "初期パーティーに欠員がなく、HP0のメンバーが配置されないこと。"
+      - "HP/ST表示が仕様（docs/ui.mdのPartyPanelセクション）と一致すること。"
+  - name: "交代UI動作テスト"
+    description: "交代ボタン操作時のモーダル表示、選択制御、ログを検証します。"
+    steps:
+      - "前衛のSTを10以上確保した状態で交代ボタンを押し、モーダルに2体の候補が並ぶことを確認します。"
+      - "HP0のモンスターを1体用意し、モーダルでグレーアウト＆タップ不可になっていることを確認します。"
+      - "健常なモンスターを選択して交代確定し、ログに`swap_request -> swap_confirmed`が順に出力されることを確認します。"
+    expected:
+      - "ST不足時は交代ボタンがdisabledになり、tooltipsで理由が表示されること。"
+      - "選択完了後に前衛・後衛パネルが即時更新され、HP/ST表示が入れ替わること。"
+  - name: "フロント撃破時の自動交代テスト"
+    description: "前衛が戦闘不能になった際の自動交代と敗北処理を確認します。"
+    steps:
+      - "敵の攻撃で前衛のHPを0にし、即座に赤い撃破バナーと`forced_swap`ログが出ることを確認します。"
+      - "バックラインに健常者がいる場合、自動的にST消費なしで前衛に出てくることを確認します。"
+      - "3体全員がHP0になった場合、敗北画面に遷移しタイトル戻りボタンが表示されることを確認します。"
+    expected:
+      - "自動交代の際、HP0のメンバーは候補から除外されること。"
+      - "全滅時に追加コマンドが表示されず、そのまま敗北演出に移行すること。"
+  - name: "バックST回復テスト"
+    description: "後衛のST回復量・タイミングを仕様通りか検証します。"
+    steps:
+      - "任意のモンスターを後衛に下げ、ターン経過ごとにSTログを確認します。"
+      - "2ターン分待機し、1ターン毎に+3のSTが加算されることを確認します。"
+      - "ゲームプレイ設定（docs/gameplay.yaml）でbacklineRecoveryを変更して再テストし、設定値反映を確認します。"
+    expected:
+      - "回復量が設定値と一致し、最大STを超えないこと。"
+      - "回復ログがUIのSTバー反映とズレないこと（差異±0）。"
+  - name: "敵HPのみ表示検証"
+    description: "敵ユニットのHPのみ表示（ST非表示）ルールを検証します。"
+    steps:
+      - "敵のHPバーを確認し、HP数値やSTゲージが表示されていないことを確認します。"
+      - "プレイヤー側はHP/ST両方が表示されていることと比較します。"
+      - "HPバー減少時にログへ`enemy_hp_update`が記録され、STログが発生しないことを確認します。"
+    expected:
+      - "敵のUIでST関連コンポーネントがDOMに描画されないこと。"
+      - "HPバーは被ダメージごとに即時更新され、数値のみログに残ること。"
   - name: "コールドブートテスト"
     description: "ゲームが3秒以内にタイトル画面まで起動できるか確認します。"
     steps:
@@ -19,16 +69,18 @@ tests:
     expected:
       - "3000 ms 以下"
   - name: "バトルフロー検証"
-    description: "プレイヤーがバトルを開始し、コマンドを選択して終了までプレイできるか検証します。"
+    description: "3vs3前提のバトルフローで、攻撃/防御/アイテム/交代/強制交代まで通しで確認します。"
     steps:
-      - "タイトルからスタートを押してバトルを開始します。"
-      - "こうげきを選択し実行します。"
-      - "ぼうぎょを選択し実行します。"
-      - "アイテムを使用し、HPが回復することを確認します。"
-      - "プレイヤーが勝つか負けるまで続けます。"
+      - "タイトルからスタートを押して3体パーティーでバトルを開始します。"
+      - "前衛のこうげきを選択し実行、ログに`turn_start -> action_attack -> damage_resolve`が揃うことを確認します。"
+      - "次ターンでぼうぎょを選択し、被ダメ時に軽減アイコンが表示されることを確認します。"
+      - "アイテムを使用しHPが回復、前衛のみHP数値が変わり敵はバーのみ更新されることを比較確認します。"
+      - "交代ボタンを押して後衛と入れ替え、HP0ユニットが選択不能であることを確認します。"
+      - "前衛が撃破された後の自動交代、最後に勝利/敗北処理までプレイします。"
     expected:
-      - "クラッシュや例外がないこと。"
-      - "HP表示が正しく更新されること。"
+      - "各フェーズのログが欠落なく流れ、3体編成でターン管理が破綻しないこと。"
+      - "プレイヤーHP/STと敵HPのみ表示の差異が常に維持されること。"
+      - "勝利時は勝利演出、全滅時は敗北演出が表示され、タイトルへ戻れること。"
   - name: "前衛・後衛交代テスト"
     description: "交代コマンドと強制交代の挙動、UI表示、STコストを検証します。"
     steps:
