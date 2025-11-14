@@ -25,6 +25,15 @@ const ACTION_RULES = {
   swapCost: 10,
   minActionSt: 5,
   backlineRegen: 3,
+  heavySkillCost: 15,
+  heavySkillThreshold: 20,
+  considerSwapHp: 30,
+  considerSwapSt: 15,
+  voluntarySwapDelta: 10,
+};
+
+const ENEMY_AI_TUNING = {
+  heavyBonusLowHp: 12,
 };
 
 const ITEM_DEFS = {
@@ -75,6 +84,8 @@ const TRANSLATIONS = {
     log_no_items: "No items remaining!",
     log_enemy_attack: "{enemy} attacks! {player} takes {damage} damage!",
     log_enemy_defend: "{enemy} raises its guard! Next damage will be halved.",
+    log_enemy_heavy: "{enemy} unleashes a heavy strike! {player} takes {damage} damage!",
+    log_enemy_swap: "Enemy repositions {outgoing} and sends in {incoming}.",
     log_victory: "{enemy} was defeated!",
     log_defeat: "The hero collapses...",
     inventory_item: "{item} x{count}",
@@ -131,6 +142,8 @@ const TRANSLATIONS = {
     log_no_items: "アイテムがありません！",
     log_enemy_attack: "{enemy}のこうげき！ {player}は{damage}のダメージを受けた！",
     log_enemy_defend: "{enemy}はぼうぎょのたいせいをとった！ 次の攻撃が半減する。",
+    log_enemy_heavy: "{enemy}の強攻撃！ {player}に{damage}のダメージ！",
+    log_enemy_swap: "てきは{outgoing}をさげ{incoming}が前に出た。",
     log_victory: "{enemy}をたおした！",
     log_defeat: "ヒーローはたおれてしまった...！",
     inventory_item: "{item} x{count}",
@@ -353,6 +366,227 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+class EnemyAI {
+  constructor(game) {
+    this.game = game;
+    this.state = "EvaluateFrontline";
+    this.pendingForcedReason = null;
+    this.pendingSwapIndex = null;
+  }
+
+  reset() {
+    this.state = "EvaluateFrontline";
+    this.pendingForcedReason = null;
+    this.pendingSwapIndex = null;
+  }
+
+  async takeTurn() {
+    const party = this.game.parties.enemy;
+    if (!party) return;
+    const front = this.game.getFrontMember(party);
+    if (!front) {
+      this.game.applyBacklineRegen(party);
+      return;
+    }
+    this.game.logBattleEvent("turn_start", `Enemy turn ${this.game.turnCount}`, { actor: "enemy" });
+    this.state = "EvaluateFrontline";
+    let resolved = false;
+    while (!resolved && this.state) {
+      switch (this.state) {
+        case "EvaluateFrontline": {
+          this.state = this.evaluateFrontline();
+          if (!this.state) {
+            resolved = true;
+          }
+          break;
+        }
+        case "ConsiderSwap": {
+          this.state = this.considerSwap();
+          break;
+        }
+        case "DecideAction": {
+          this.state = this.decideAction();
+          break;
+        }
+        case "Attack": {
+          await this.game.audio.playSfx("damage");
+          this.game.enemyAttack();
+          resolved = true;
+          break;
+        }
+        case "Defend": {
+          await this.game.audio.playSfx("defend");
+          this.game.enemyDefend();
+          resolved = true;
+          break;
+        }
+        case "HeavySkill": {
+          await this.game.audio.playSfx("damage");
+          this.game.enemyHeavySkill();
+          resolved = true;
+          break;
+        }
+        case "VoluntarySwap": {
+          await this.performVoluntarySwap();
+          this.state = "EvaluateFrontline";
+          resolved = true;
+          break;
+        }
+        case "ForcedSwap": {
+          const reason = this.pendingForcedReason || "front_ko";
+          if (this.performForcedSwap(reason)) {
+            if (reason === "st_lockout") {
+              resolved = true;
+            } else {
+              this.state = "EvaluateFrontline";
+            }
+          } else {
+            resolved = true;
+          }
+          break;
+        }
+        default:
+          resolved = true;
+          break;
+      }
+    }
+    this.game.applyBacklineRegen(party);
+  }
+
+  evaluateFrontline() {
+    this.pendingForcedReason = null;
+    const party = this.game.parties.enemy;
+    const front = this.game.getFrontMember(party);
+    if (!party || !front) {
+      return null;
+    }
+    const hasBackline = this.game.hasAvailableBackliner(party);
+    if (front.currentHP <= 0) {
+      if (hasBackline) {
+        this.pendingForcedReason = "front_ko";
+        return "ForcedSwap";
+      }
+      return null;
+    }
+    if (front.currentST < ACTION_RULES.minActionSt) {
+      if (hasBackline) {
+        this.pendingForcedReason = "st_lockout";
+        return "ForcedSwap";
+      }
+      this.game.logBattleEvent(
+        "st_lockout",
+        this.game.localization.t("log_st_lockout", { name: front.name }),
+        { actor: "enemy" }
+      );
+      return null;
+    }
+    if (
+      hasBackline &&
+      (front.currentHP <= ACTION_RULES.considerSwapHp || front.currentST < ACTION_RULES.considerSwapSt)
+    ) {
+      return "ConsiderSwap";
+    }
+    return "DecideAction";
+  }
+
+  considerSwap() {
+    const party = this.game.parties.enemy;
+    const front = this.game.getFrontMember(party);
+    if (!front) {
+      return null;
+    }
+    const bestIndex = this.getBestBacklinerIndex(party);
+    if (!Number.isInteger(bestIndex)) {
+      return "DecideAction";
+    }
+    const candidate = party.members[bestIndex];
+    if (!candidate) {
+      return "DecideAction";
+    }
+    if (candidate.currentST - front.currentST >= ACTION_RULES.voluntarySwapDelta) {
+      this.pendingSwapIndex = bestIndex;
+      return "VoluntarySwap";
+    }
+    return "DecideAction";
+  }
+
+  decideAction() {
+    const party = this.game.parties.enemy;
+    const front = this.game.getFrontMember(party);
+    if (!front) {
+      return null;
+    }
+    const playerFront = this.game.getFrontMember(this.game.parties.player);
+    const playerFrontHp = playerFront ? playerFront.currentHP : 0;
+    const heavyReady = front.currentST >= Math.max(ACTION_RULES.heavySkillThreshold, ACTION_RULES.heavySkillCost);
+    if (heavyReady && playerFrontHp < 40) {
+      return "HeavySkill";
+    }
+    if (front.currentST >= ACTION_RULES.attackCost && front.currentHP > 20) {
+      return "Attack";
+    }
+    if (front.currentHP <= 20 && front.currentST < ACTION_RULES.attackCost) {
+      return "Defend";
+    }
+    if (front.currentST >= ACTION_RULES.attackCost) {
+      return "Attack";
+    }
+    return "Defend";
+  }
+
+  async performVoluntarySwap() {
+    const party = this.game.parties.enemy;
+    const front = this.game.getFrontMember(party);
+    const targetIndex = this.pendingSwapIndex;
+    if (!party || !front || !Number.isInteger(targetIndex)) {
+      return;
+    }
+    const incoming = party.members[targetIndex];
+    if (!incoming) {
+      return;
+    }
+    await this.game.audio.playSfx("swap");
+    this.game.consumeStamina(front, ACTION_RULES.swapCost);
+    party.frontIndex = targetIndex;
+    party.guard = false;
+    this.game.logBattleEvent(
+      "enemy_swap",
+      this.game.localization.t("log_enemy_swap", { outgoing: front.name, incoming: incoming.name }),
+      { actor: "enemy" }
+    );
+    this.pendingSwapIndex = null;
+  }
+
+  performForcedSwap(reasonOverride) {
+    const party = this.game.parties.enemy;
+    if (!party) {
+      return false;
+    }
+    const swapped = this.game.forceSwap(party, reasonOverride || this.pendingForcedReason || "front_ko");
+    this.pendingForcedReason = null;
+    return swapped;
+  }
+
+  getBestBacklinerIndex(party) {
+    const indexes = this.game.findBacklineIndexes(party);
+    let bestIndex = null;
+    let bestScore = -Infinity;
+    indexes.forEach((idx) => {
+      const member = party.members[idx];
+      if (!member || member.currentST < ACTION_RULES.heavySkillThreshold) {
+        return;
+      }
+      const hpRatio = member.maxHP > 0 ? member.currentHP / member.maxHP : 0;
+      const score = hpRatio * 100 + member.currentST;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = idx;
+      }
+    });
+    return bestIndex;
+  }
+}
+
 class GameApp {
   constructor() {
     this.localization = new Localization();
@@ -360,6 +594,7 @@ class GameApp {
     this.saveManager = new SaveManager();
     this.audio = new AudioManager(this.saveManager);
     this.dataLoader = new GameDataLoader();
+    this.enemyAI = new EnemyAI(this);
 
     this.state = "Boot";
     this.parties = { player: null, enemy: null };
@@ -599,6 +834,7 @@ class GameApp {
     this.analytics.track("start_battle");
     this.parties.player = this.createPartyState(PARTY_PRESETS.player);
     this.parties.enemy = this.createPartyState(PARTY_PRESETS.enemy);
+    this.enemyAI.reset();
     this.inventory = {};
     this.saveManager.data.player.items.forEach((item) => {
       this.inventory[item.id] = item.count;
@@ -804,29 +1040,10 @@ class GameApp {
   }
 
   async enemyTurn() {
-    const party = this.parties.enemy;
-    const front = this.getFrontMember(party);
-    if (!front || front.currentHP <= 0) {
-      return;
+    if (!this.enemyAI) {
+      this.enemyAI = new EnemyAI(this);
     }
-    this.logBattleEvent("turn_start", `Enemy turn ${this.turnCount}`, { actor: "enemy" });
-    if (front.currentST < ACTION_RULES.minActionSt) {
-      const swapped = this.handleStLockout(party, "enemy");
-      if (swapped) {
-        this.renderParties();
-      }
-    }
-    const currentFront = this.getFrontMember(party);
-    if (!currentFront) return;
-    if (currentFront.currentHP <= 0) return;
-    if (currentFront.currentST >= ACTION_RULES.attackCost) {
-      await this.audio.playSfx("damage");
-      this.enemyAttack();
-    } else {
-      await this.audio.playSfx("defend");
-      this.enemyDefend();
-    }
-    this.applyBacklineRegen(party);
+    await this.enemyAI.takeTurn();
   }
 
   enemyAttack() {
@@ -859,6 +1076,28 @@ class GameApp {
     this.logBattleEvent("enemy_action_defend", this.localization.t("log_enemy_defend", { enemy: front.name }), {
       actor: "enemy",
     });
+  }
+
+  enemyHeavySkill() {
+    const attackerParty = this.parties.enemy;
+    const defenderParty = this.parties.player;
+    const attacker = this.getFrontMember(attackerParty);
+    const defender = this.getFrontMember(defenderParty);
+    if (!attacker || !defender) return;
+    const baseDamage = this.calculateDamage(attacker, defender, defenderParty);
+    const damage = baseDamage + ENEMY_AI_TUNING.heavyBonusLowHp;
+    this.logBattleEvent(
+      "enemy_action_heavy",
+      this.localization.t("log_enemy_heavy", { enemy: attacker.name, player: defender.name, damage }),
+      { actor: "enemy", bonus: ENEMY_AI_TUNING.heavyBonusLowHp }
+    );
+    defender.currentHP = clamp(defender.currentHP - damage, 0, defender.maxHP);
+    this.logBattleEvent("damage_resolve", `${defender.name} HP ${defender.currentHP}/${defender.maxHP}`, {
+      actor: "enemy",
+      damage,
+    });
+    this.consumeStamina(attacker, ACTION_RULES.heavySkillCost);
+    this.handleKnockout(defenderParty, "front_ko");
   }
 
   applyBacklineRegen(party) {
@@ -935,9 +1174,7 @@ class GameApp {
       message,
       { party: party.label, reason }
     );
-    if (party === this.parties.player) {
-      this.showForcedSwapBanner(message);
-    }
+    this.showForcedSwapBanner(message);
     return true;
   }
 
