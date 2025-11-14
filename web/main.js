@@ -54,6 +54,7 @@ const TRANSLATIONS = {
     enemy_party_label: "Enemy Party",
     swap_title: "Choose a backliner",
     swap_cancel: "Cancel",
+    swap_confirm: "Confirm",
     result_title: "Result",
     result_player: "Player",
     result_enemy: "Enemy",
@@ -89,6 +90,7 @@ const TRANSLATIONS = {
     log_enemy_hp_update: "{enemy} HP {current}/{max}.",
     log_item_front: "{player} shares {item} with {target} and recovers {amount} HP.",
     low_st_label: "Low ST",
+    ko_label: "Down",
   },
   ja: {
     game_title: "カジュアルターンバトル",
@@ -108,6 +110,7 @@ const TRANSLATIONS = {
     enemy_party_label: "てきパーティー",
     swap_title: "後衛を選択",
     swap_cancel: "キャンセル",
+    swap_confirm: "決定",
     result_title: "リザルト",
     result_player: "プレイヤー",
     result_enemy: "てき",
@@ -143,6 +146,7 @@ const TRANSLATIONS = {
     log_enemy_hp_update: "{enemy}のHP {current}/{max}。",
     log_item_front: "{player}は{target}に{item}をわたし{amount}回復した。",
     low_st_label: "ST不足",
+    ko_label: "戦闘不能",
   },
 };
 
@@ -364,6 +368,8 @@ class GameApp {
     this.dataReady = false;
     this.turnOwner = "player";
     this.turnCount = 0;
+    this.swapSelectionIndex = null;
+    this.forcedSwapTimeout = null;
 
     this.cacheDom();
     this.bindEvents();
@@ -406,6 +412,7 @@ class GameApp {
       item: document.getElementById("cmd-item"),
       swap: document.getElementById("cmd-swap"),
       swapCancel: document.getElementById("btn-swap-cancel"),
+      swapConfirm: document.getElementById("btn-swap-confirm"),
     };
     this.dialogs = {
       settings: document.getElementById("settings-dialog"),
@@ -429,6 +436,9 @@ class GameApp {
       enemyBackline: document.getElementById("enemy-backline"),
       swapPanel: document.getElementById("swap-panel"),
       swapCandidates: document.getElementById("swap-candidates"),
+      forcedSwapBanner: document.getElementById("forced-swap-banner"),
+      forcedSwapText: document.getElementById("forced-swap-text"),
+      backlineLiveRegion: document.getElementById("backline-st-live"),
       resultTitle: document.getElementById("result-title"),
       resultPlayerList: document.getElementById("result-player-party"),
       resultEnemyList: document.getElementById("result-enemy-party"),
@@ -453,11 +463,12 @@ class GameApp {
     this.buttons.item?.addEventListener("click", () => this.playerAction("item"));
     this.buttons.swap?.addEventListener("click", () => this.openSwapPanel());
     this.buttons.swapCancel?.addEventListener("click", () => this.closeSwapPanel());
+    this.buttons.swapConfirm?.addEventListener("click", () => this.executeSelectedSwap());
     this.labels.swapCandidates?.addEventListener("click", (event) => {
       const target = event.target.closest("button[data-index]");
-      if (!target) return;
+      if (!target || target.disabled) return;
       const index = Number(target.getAttribute("data-index"));
-      this.executeVoluntarySwap(index);
+      this.setSwapSelection(Number.isNaN(index) ? null : index);
     });
 
     this.inputs.language?.addEventListener("change", (event) => {
@@ -510,6 +521,12 @@ class GameApp {
       this.updateResultScreen();
     } else {
       this.labels.resultTitle.textContent = this.localization.t("result_title");
+    }
+    if (this.state === "Battle") {
+      this.renderParties();
+      if (this.labels.swapPanel?.getAttribute("aria-hidden") === "false") {
+        this.renderSwapCandidates();
+      }
     }
   }
 
@@ -590,6 +607,9 @@ class GameApp {
     this.turnOwner = "player";
     this.turnCount = 1;
     this.labels.battleLog.innerHTML = "";
+    if (this.labels.backlineLiveRegion) {
+      this.labels.backlineLiveRegion.textContent = "";
+    }
     this.renderParties();
     this.updateInventoryDisplay();
     this.setScreen("Battle");
@@ -844,6 +864,8 @@ class GameApp {
   applyBacklineRegen(party) {
     if (!party) return;
     const updates = [];
+    const isPlayerParty = party === this.parties.player;
+    const stText = this.localization.t("st_label");
     party.members.forEach((member, idx) => {
       if (idx === party.frontIndex) return;
       if (member.currentHP <= 0) return;
@@ -856,11 +878,15 @@ class GameApp {
     });
     if (updates.length) {
       const total = updates.reduce((sum, entry) => sum + entry.amount, 0);
-      this.logBattleEvent(
-        "backline_st_regen",
-        this.localization.t("log_backline_regen", { party: party.label, amount: total }),
-        { party: party.label, updates }
-      );
+      const message = this.localization.t("log_backline_regen", { party: party.label, amount: total });
+      this.logBattleEvent("backline_st_regen", message, { party: party.label, updates });
+      if (isPlayerParty && this.labels.backlineLiveRegion) {
+        const detail = updates.map((entry) => `${entry.name}+${entry.amount}`).join(", ");
+        const detailSuffix = detail ? ` (${detail} ${stText})` : "";
+        this.labels.backlineLiveRegion.textContent = `${message}${detailSuffix}`;
+      }
+    } else if (isPlayerParty && this.labels.backlineLiveRegion) {
+      this.labels.backlineLiveRegion.textContent = "";
     }
   }
 
@@ -903,12 +929,28 @@ class GameApp {
     const incoming = party.members[nextIndex];
     party.frontIndex = nextIndex;
     party.guard = false;
+    const message = this.localization.t("log_forced_swap", { incoming: incoming.name, reason });
     this.logBattleEvent(
       "forced_swap",
-      this.localization.t("log_forced_swap", { incoming: incoming.name, reason }),
+      message,
       { party: party.label, reason }
     );
+    if (party === this.parties.player) {
+      this.showForcedSwapBanner(message);
+    }
     return true;
+  }
+
+  showForcedSwapBanner(message) {
+    if (!this.labels.forcedSwapBanner || !this.labels.forcedSwapText) return;
+    this.labels.forcedSwapText.textContent = message;
+    this.labels.forcedSwapBanner.setAttribute("aria-hidden", "false");
+    if (this.forcedSwapTimeout) {
+      clearTimeout(this.forcedSwapTimeout);
+    }
+    this.forcedSwapTimeout = window.setTimeout(() => {
+      this.labels.forcedSwapBanner?.setAttribute("aria-hidden", "true");
+    }, 2600);
   }
 
   openSwapPanel() {
@@ -916,6 +958,7 @@ class GameApp {
       this.logBattleEvent("swap_unavailable", this.localization.t("log_no_swap_targets"), { actor: "player" });
       return;
     }
+    this.setSwapSelection(null);
     this.renderSwapCandidates();
     this.labels.swapPanel.setAttribute("aria-hidden", "false");
     this.logBattleEvent("swap_request", this.localization.t("log_swap_request"), { actor: "player" });
@@ -923,32 +966,134 @@ class GameApp {
 
   closeSwapPanel() {
     this.labels.swapPanel.setAttribute("aria-hidden", "true");
+    this.setSwapSelection(null);
   }
 
   renderSwapCandidates() {
     const party = this.parties.player;
     const container = this.labels.swapCandidates;
+    if (!container) return;
     container.innerHTML = "";
-    this.findBacklineIndexes(party).forEach((idx) => {
+    if (!party) return;
+    const indexes = party.members
+      .map((_, idx) => idx)
+      .filter((idx) => idx !== party.frontIndex);
+    if (!indexes.length) {
+      const empty = document.createElement("p");
+      empty.className = "candidate-grid__empty";
+      empty.textContent = this.localization.t("log_no_swap_targets");
+      container.appendChild(empty);
+      this.swapSelectionIndex = null;
+      this.updateSwapSelectionUI();
+      return;
+    }
+    const hpLabel = this.localization.t("hp_label");
+    const stLabel = this.localization.t("st_label");
+    indexes.forEach((idx) => {
       const member = party.members[idx];
+      if (!member) return;
       const button = document.createElement("button");
-      button.className = "swap-candidate";
+      button.className = "candidate-card";
       button.type = "button";
       button.setAttribute("data-index", String(idx));
-      const info = document.createElement("div");
-      info.className = "swap-candidate__info";
-      info.innerHTML = `<strong>${member.name}</strong><span class="swap-candidate__status">${member.currentHP}/${member.maxHP} HP · ${member.currentST}/${member.maxST} ST</span>`;
-      const warning = document.createElement("div");
-      warning.className = "swap-candidate__warning";
-      if (member.currentST < ACTION_RULES.minActionSt) {
-        warning.textContent = this.localization.t("low_st_label");
+      button.setAttribute("role", "option");
+      const isDown = member.currentHP <= 0;
+      if (isDown) {
+        button.classList.add("candidate-card--disabled");
+        button.disabled = true;
+        button.setAttribute("aria-disabled", "true");
+      } else {
+        button.setAttribute("aria-disabled", "false");
       }
-      button.appendChild(info);
-      if (warning.textContent) {
+      const name = document.createElement("div");
+      name.className = "candidate-card__name";
+      name.textContent = member.name;
+      const stats = document.createElement("div");
+      stats.className = "candidate-card__stats";
+      const hpStat = document.createElement("span");
+      hpStat.textContent = `${hpLabel} ${member.currentHP}/${member.maxHP}`;
+      const stStat = document.createElement("span");
+      stStat.textContent = `${stLabel} ${member.currentST}/${member.maxST}`;
+      stats.appendChild(hpStat);
+      stats.appendChild(stStat);
+      const bars = document.createElement("div");
+      bars.className = "candidate-card__bars";
+      const hpBar = document.createElement("div");
+      hpBar.className = "candidate-card__bar";
+      const hpFill = document.createElement("div");
+      hpFill.className = "candidate-card__fill";
+      hpFill.style.width = `${(member.currentHP / member.maxHP) * 100}%`;
+      hpBar.appendChild(hpFill);
+      bars.appendChild(hpBar);
+      const stBar = document.createElement("div");
+      stBar.className = "candidate-card__bar";
+      const stFill = document.createElement("div");
+      stFill.className = "candidate-card__fill candidate-card__fill--st";
+      stFill.style.width = `${(member.currentST / member.maxST) * 100}%`;
+      stBar.appendChild(stFill);
+      bars.appendChild(stBar);
+      const traits = document.createElement("div");
+      traits.className = "candidate-card__traits";
+      (member.traits || []).forEach((trait) => {
+        const badge = document.createElement("span");
+        badge.className = "party__trait";
+        badge.textContent = trait;
+        traits.appendChild(badge);
+      });
+      const warnings = [];
+      if (isDown) {
+        warnings.push(this.localization.t("ko_label"));
+      } else if (member.currentST < ACTION_RULES.minActionSt) {
+        warnings.push(this.localization.t("low_st_label"));
+      }
+      button.appendChild(name);
+      button.appendChild(stats);
+      button.appendChild(bars);
+      if (traits.childElementCount) {
+        button.appendChild(traits);
+      }
+      if (warnings.length) {
+        const warning = document.createElement("div");
+        warning.className = "candidate-card__warning";
+        const icon = document.createElement("span");
+        icon.className = "candidate-card__warning-icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.textContent = "⚠️";
+        const text = document.createElement("span");
+        text.textContent = warnings.join(" / ");
+        warning.appendChild(icon);
+        warning.appendChild(text);
         button.appendChild(warning);
       }
       container.appendChild(button);
     });
+    this.updateSwapSelectionUI();
+  }
+
+  setSwapSelection(index) {
+    if (Number.isInteger(index)) {
+      this.swapSelectionIndex = index;
+    } else {
+      this.swapSelectionIndex = null;
+    }
+    this.updateSwapSelectionUI();
+  }
+
+  updateSwapSelectionUI() {
+    const hasSelection = Number.isInteger(this.swapSelectionIndex);
+    if (this.buttons.swapConfirm) {
+      this.buttons.swapConfirm.disabled = !hasSelection;
+    }
+    this.labels.swapCandidates?.querySelectorAll("button[data-index]").forEach((btn) => {
+      const idx = Number(btn.getAttribute("data-index"));
+      const isSelected = hasSelection && idx === this.swapSelectionIndex;
+      btn.setAttribute("aria-selected", isSelected ? "true" : "false");
+    });
+  }
+
+  executeSelectedSwap() {
+    if (!Number.isInteger(this.swapSelectionIndex)) return;
+    this.executeVoluntarySwap(this.swapSelectionIndex);
   }
 
   async executeVoluntarySwap(index) {
@@ -1030,37 +1175,66 @@ class GameApp {
   }
 
   renderBackline(party, container, showSt) {
+    if (!container) return;
     container.innerHTML = "";
     if (!party) return;
+    const hpLabel = this.localization.t("hp_label");
+    const stLabel = this.localization.t("st_label");
     party.members.forEach((member, idx) => {
       if (idx === party.frontIndex) return;
       const card = document.createElement("div");
-      card.className = "backline-member";
-      const name = document.createElement("div");
-      name.className = "backline-member__name";
-      name.textContent = member.name;
-      const bars = document.createElement("div");
-      bars.className = "backline-member__bars";
-      const hpBar = document.createElement("div");
-      hpBar.className = "backline-member__gauge";
-      const hpFill = document.createElement("div");
-      hpFill.className = "backline-member__fill";
-      hpFill.style.width = `${(member.currentHP / member.maxHP) * 100}%`;
-      hpBar.appendChild(hpFill);
-      bars.appendChild(hpBar);
-      if (showSt) {
-        const stBar = document.createElement("div");
-        stBar.className = "backline-member__gauge";
-        const stFill = document.createElement("div");
-        stFill.className = "backline-member__fill backline-member__fill--st";
-        stFill.style.width = `${(member.currentST / member.maxST) * 100}%`;
-        stBar.appendChild(stFill);
-        bars.appendChild(stBar);
+      card.className = "backline-card";
+      card.setAttribute("role", "listitem");
+      if (member.currentHP <= 0) {
+        card.classList.add("backline-card--down");
       }
+      const name = document.createElement("div");
+      name.className = "backline-card__name";
+      name.textContent = member.name;
       card.appendChild(name);
-      card.appendChild(bars);
+      card.appendChild(this.createMiniGauge(hpLabel, member.currentHP, member.maxHP, false));
+      if (showSt) {
+        card.appendChild(this.createMiniGauge(stLabel, member.currentST, member.maxST, true));
+      }
+      if (member.traits && member.traits.length) {
+        const traits = document.createElement("div");
+        traits.className = "backline-card__traits";
+        member.traits.forEach((trait) => {
+          const badge = document.createElement("span");
+          badge.className = "party__trait";
+          badge.textContent = trait;
+          traits.appendChild(badge);
+        });
+        card.appendChild(traits);
+      }
       container.appendChild(card);
     });
+  }
+
+  createMiniGauge(label, current, max, isSt) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "mini-gauge";
+    const meta = document.createElement("div");
+    meta.className = "mini-gauge__meta";
+    const left = document.createElement("span");
+    left.textContent = label;
+    const right = document.createElement("span");
+    right.textContent = `${current}/${max}`;
+    meta.appendChild(left);
+    meta.appendChild(right);
+    const track = document.createElement("div");
+    track.className = "mini-gauge__track";
+    const fill = document.createElement("div");
+    fill.className = "mini-gauge__fill";
+    if (isSt) {
+      fill.classList.add("mini-gauge__fill--st");
+    }
+    const percent = max > 0 ? clamp((current / max) * 100, 0, 100) : 0;
+    fill.style.width = `${percent}%`;
+    track.appendChild(fill);
+    wrapper.appendChild(meta);
+    wrapper.appendChild(track);
+    return wrapper;
   }
 
   updateInventoryDisplay() {
