@@ -1,21 +1,61 @@
 ai:
   states:
+    - name: EvaluateFrontline
+      description: "Check whether the current front monster can stay active based on HP/ST thresholds."
+      transitions:
+        - to: ForcedSwap
+          condition: "hp <= 0 or st < 5 and backline_available"
+        - to: ConsiderSwap
+          condition: "hp <= 30 or st < 15"
+        - to: DecideAction
+          condition: "otherwise"
+    - name: ConsiderSwap
+      description: "Compare backline stamina/HP vs current front to decide a voluntary swap."
+      transitions:
+        - to: VoluntarySwap
+          condition: "backline_best.st - current.st >= 10"
+        - to: DecideAction
+          condition: "else"
     - name: DecideAction
       transitions:
         - to: Attack
-          condition: "hp > 20"
+          condition: "st >= 10 and hp > 20"
         - to: Defend
-          condition: "hp <= 20"
+          condition: "hp <= 20 and st < 10"
+        - to: HeavySkill
+          condition: "st >= 20 and player_front_hp < 40"
     - name: Attack
       transitions:
-        - to: DecideAction
+        - to: EvaluateFrontline
           condition: "turn_end"
     - name: Defend
       transitions:
-        - to: DecideAction
+        - to: EvaluateFrontline
           condition: "turn_end"
+    - name: HeavySkill
+      transitions:
+        - to: EvaluateFrontline
+          condition: "turn_end"
+    - name: VoluntarySwap
+      transitions:
+        - to: EvaluateFrontline
+          condition: "after_swap"
+    - name: ForcedSwap
+      transitions:
+        - to: EvaluateFrontline
+          condition: "after_swap"
   behaviours:
     Attack:
-      description: "Enemy attacks the player. Uses damage formula."
+      description: "Enemy attacks the player. Consumes 5 ST, uses damage formula, and logs the move name."
     Defend:
-      description: "Enemy reduces damage from the next player attack by half."
+      description: "Enemy reduces damage from the next player attack by half and refunds 3 ST at turn end."
+    HeavySkill:
+      description: "Consumes 15 ST to apply a power-move animation plus bonus damage vs low-HP player fronts."
+    VoluntarySwap:
+      description: >-
+        Select the healthiest backliner with >= 20 ST, spend 10 ST from the outgoing monster,
+        push log events, and sync the party.frontIndex.
+    ForcedSwap:
+      description: >-
+        Triggered when the front monster is KO'd or ST-locked. Picks the first alive backliner without
+        ST cost, emits a red banner event for UI, and if none remain, sends a LoseBattle signal.

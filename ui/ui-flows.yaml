@@ -6,11 +6,33 @@ ui:
     - name: Battle
       scaler: ScaleWithScreenSize
       referenceResolution: 1920x1080
+      subviews:
+        - name: FrontDisplay
+          description: "Large portrait, HP/ST gauges, action buttons."
+        - name: BacklineRail
+          description: "Small portraits with shared HP/ST meters and swap buttons."
+        - name: ForcedSwapBanner
+          description: "Red banner that animates in when forced swaps happen."
     - name: Result
       scaler: ScaleWithScreenSize
       referenceResolution: 1920x1080
+  modals:
+    - name: SwapModal
+      parent: Battle
+      contents:
+        - "Backline candidate list with HP/ST values"
+        - "Traits chips and low-ST warning icons"
+        - "Confirm/Cancel buttons"
+      triggers:
+        - "Battle.CommandMenu.Swap"
+      dismiss:
+        - "Confirm -> dispatch SwapPartyMember event"
+        - "Cancel button"
   flows:
     - { from: Title, to: Battle, trigger: StartButton }
     - { from: Battle, to: Result, trigger: PlayerWin }
     - { from: Battle, to: Result, trigger: PlayerLose }
     - { from: Result, to: Title, trigger: TitleButton }
+    - { from: Battle, to: SwapModal, trigger: SwapButton }
+    - { from: SwapModal, to: Battle, trigger: ConfirmSwap }
+    - { from: SwapModal, to: Battle, trigger: CancelSwap }

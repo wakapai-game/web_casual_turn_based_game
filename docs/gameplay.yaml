@@ -1,38 +1,119 @@
-player:
-  name: "Hero"
-  maxHP: 100
-  attack: 20
-  defense: 10
-  items:
-    - id: potion_small
-      healAmount: 20
-enemies:
-  - id: slime
-    name: "Slime"
-    hp: 50
-    attack: 10
-    defense: 5
-    exp: 10
-  - id: goblin
-    name: "Goblin"
-    hp: 70
-    attack: 15
-    defense: 7
-    exp: 15
-  - id: bat
-    name: "Bat"
-    hp: 40
-    attack: 12
-    defense: 3
-    exp: 12
+playerParty:
+  label: "Hero Squad"
+  frontIndex: 0
+  backIndexes: [1, 2]
+  monsters:
+    - id: hero_knight
+      name: "Hero"
+      maxHP: 100
+      currentHP: 100
+      maxST: 50
+      currentST: 50
+      attack: 20
+      defense: 10
+      traits: ["balanced"]
+    - id: hero_archer
+      name: "Archer"
+      maxHP: 80
+      currentHP: 80
+      maxST: 65
+      currentST: 65
+      attack: 24
+      defense: 6
+      traits: ["backline"]
+    - id: hero_mage
+      name: "Mage"
+      maxHP: 70
+      currentHP: 70
+      maxST: 80
+      currentST: 80
+      attack: 28
+      defense: 4
+      traits: ["burst"]
+enemyParty:
+  label: "Forest Ambush"
+  frontIndex: 0
+  backIndexes: [1, 2]
+  monsters:
+    - id: slime
+      name: "Slime"
+      maxHP: 50
+      currentHP: 50
+      maxST: 40
+      currentST: 40
+      attack: 10
+      defense: 5
+      exp: 10
+    - id: goblin
+      name: "Goblin"
+      maxHP: 70
+      currentHP: 70
+      maxST: 55
+      currentST: 55
+      attack: 15
+      defense: 7
+      exp: 15
+    - id: bat
+      name: "Bat"
+      maxHP: 40
+      currentHP: 40
+      maxST: 30
+      currentST: 30
+      attack: 12
+      defense: 3
+      exp: 12
 turnRules:
   firstTurn: player
-  actions:
-    attack:
-      description: "Deal damage equal to (attack - defense) but at least 1"
-    defend:
-      description: "Halve incoming damage on the next enemy attack"
-    item:
-      description: "Use an item from inventory"
+  frontlineDetermination:
+    description: >-
+      The active monster for each party is the member referenced by frontIndex.
+      All monsters whose indexes are not frontIndex are considered backline.
+      If the current front monster is knocked out, frontIndex must immediately
+      shift to the next available backline member.
+  swapConditions:
+    voluntarySwap:
+      requirements: "Can be triggered when front monster is alive and has at least 10 ST."
+      cost: "Consumes 1 player action and subtracts 10 ST from the outgoing monster."
+    forcedSwap:
+      triggers:
+        - "Front monster HP drops to 0 (KO)."
+        - "Scripted events (story, status ailments)."
+      handling: "No additional ST cost. Automatically selects the first healthy backline member."
+  turnConsumption:
+    attack: "Consumes the acting monster's turn and 5 ST by default."
+    defend: "Consumes the turn but refunds 3 ST at end of action."
+    swap: "Voluntary swaps consume the player's turn; forced swaps do not consume a turn but occur immediately after KO resolution."
+  backlineRecovery:
+    description: >-
+      Monsters that are in the backline regenerate 3 ST at the end of their own team's turn.
+      HP regeneration does not occur unless specific skills or items are active.
+  defeatAndExhaustion:
+    fullPartyDown: "Battle ends immediately with a loss when all monsters have 0 HP."
+    stLockout: >-
+      Monsters reduced to 0 ST cannot perform actions until they recover to at least 5 ST
+      via backline recovery or items. If the front monster is ST-locked while backline
+      members exist, a forced swap occurs.
+    noSwapAvailable: "If no backline monsters remain, frontIndex stays null and actions are disabled."
+uiRequirements:
+  layout:
+    frontDisplay: "Active monster shown with large portrait, HP bar, and thick ST bar beneath."
+    backDisplay: "Backline monsters rendered as smaller portraits stacked horizontally with compact HP/ST indicators."
+  gauges:
+    front: "HP bar uses 12px height, ST bar uses 8px height with animated drain/fill."
+    back: "HP/ST bars share a single thin combined meter to save space."
+  controls:
+    swapButton: "Dedicated swap button near the action menu, disabled when no eligible backliners exist."
+    candidatePanel: >-
+      Tapping swap opens a modal showing backline candidates with HP/ST values,
+      traits, and warnings for low ST.
+    forcedSwapBanner: "When forced swaps occur, show a red banner describing the trigger."
+dependenciesAndNotes:
+  stSystemIntegration: >-
+    Ensure the ST regeneration hooks tie into the shared stamina service so UI and
+    gameplay stay synchronized.
+  futureEnhancements:
+    - "Plan particle effects when front/back transitions happen."
+    - "Consider camera shake variations for forced swaps and full-party defeat."
+  documentationStatus: "Keep this YAML aligned with future battle design pitches."
 damageCalculation:
   formula: "max(1, attacker.attack - defender.defense)"
