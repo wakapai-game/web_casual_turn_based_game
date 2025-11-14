@@ -160,39 +160,75 @@ body {
   box-sizing: border-box;
 }
 
-.battle__panels {
+.battle__parties {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
 }
 
-.panel {
+.party {
   background: var(--panel);
   border-radius: 16px;
   padding: 20px;
   border: 1px solid var(--border);
   backdrop-filter: blur(5px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.panel h2 {
-  margin-top: 0;
-  font-size: 1.4rem;
+.party__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.party__front-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.party__front-card--enemy {
+  background: rgba(255, 87, 51, 0.1);
+}
+
+.party__front-name {
+  font-size: 1.2rem;
   letter-spacing: 0.05em;
 }
 
-.hp-bar {
+.party__traits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #b3bce0;
+}
+
+.party__trait {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+
+.gauge {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.hp-bar__label {
+.gauge__label {
   display: flex;
   justify-content: space-between;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
-.hp-bar__track {
+.gauge__track {
   width: 100%;
   height: 16px;
   border-radius: 999px;
@@ -200,15 +236,75 @@ body {
   overflow: hidden;
 }
 
-.hp-bar__fill {
-  height: 100%;
-  width: 50%;
-  background: linear-gradient(90deg, #53d769, #25a244);
-  transition: width 0.3s ease;
+.gauge__track--st {
+  height: 10px;
 }
 
-.hp-bar__fill--enemy {
+.gauge__fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #53d769, #25a244);
+  transition: width 0.25s ease;
+}
+
+.gauge__fill--enemy {
   background: linear-gradient(90deg, #ff8a65, #d7263d);
+}
+
+.gauge__fill--st {
+  background: linear-gradient(90deg, #64d8ff, #168aad);
+}
+
+.party__backline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.party__backline--enemy .backline-member {
+  border-color: rgba(255, 122, 89, 0.4);
+}
+
+.backline-member {
+  flex: 1 1 120px;
+  min-width: 110px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px;
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.backline-member__name {
+  font-weight: 600;
+}
+
+.backline-member__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.backline-member__gauge {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.backline-member__fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #53d769, #25a244);
+  transition: width 0.25s ease;
+}
+
+.backline-member__fill--st {
+  background: linear-gradient(90deg, #64d8ff, #168aad);
 }
 
 .battle__commands {
@@ -222,6 +318,86 @@ body {
   margin-left: auto;
   font-size: 0.9rem;
   color: #b3bce0;
+}
+
+.swap-panel {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.swap-panel[aria-hidden="false"] {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.swap-panel__content {
+  background: rgba(12, 15, 24, 0.95);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  width: min(90%, 440px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.swap-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.swap-candidate {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.swap-candidate--disabled {
+  opacity: 0.4;
+}
+
+.swap-candidate__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.swap-candidate__status {
+  font-size: 0.85rem;
+  color: #b3bce0;
+}
+
+.swap-candidate__warning {
+  color: #ffb347;
+  font-size: 0.8rem;
+}
+
+.result__parties {
+  display: flex;
+  gap: 20px;
+  justify-content: space-around;
+}
+
+.result__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .battle__log {
@@ -301,6 +477,10 @@ body {
     gap: 16px;
   }
 
+  .battle__parties {
+    grid-template-columns: 1fr;
+  }
+
   .battle__commands {
     flex-direction: column;
     align-items: stretch;
@@ -308,5 +488,10 @@ body {
 
   .inventory {
     margin-left: 0;
+  }
+
+  .result__parties {
+    flex-direction: column;
+    gap: 12px;
   }
 }

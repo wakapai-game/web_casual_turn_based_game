@@ -1,22 +1,37 @@
-const DATA = {
+const PARTY_PRESETS = {
   player: {
-    name: "Hero",
-    maxHP: 100,
-    attack: 20,
-    defense: 10,
-    items: [{ id: "potion_small", count: 1 }],
+    label: "Hero Squad",
+    frontIndex: 0,
+    members: [
+      { monsterId: "mon_flame_drake", name: "Hero", traits: ["balanced", "frontline"] },
+      { monsterId: "mon_tide_stalker", name: "Archer", traits: ["backline", "focus"] },
+      { monsterId: "mon_gale_rogue", name: "Mage", traits: ["burst"] },
+    ],
   },
-  enemies: [
-    { id: "slime", name: "Slime", maxHP: 50, attack: 10, defense: 5 },
-    { id: "goblin", name: "Goblin", maxHP: 70, attack: 15, defense: 7 },
-    { id: "bat", name: "Bat", maxHP: 40, attack: 12, defense: 3 },
-  ],
-  items: {
-    potion_small: {
-      id: "potion_small",
-      names: { en: "Small Potion", ja: "ちいさなポーション" },
-      healAmount: 20,
-    },
+  enemy: {
+    label: "Forest Ambush",
+    frontIndex: 0,
+    members: [
+      { monsterId: "mon_magma_tortoise", traits: ["tank"] },
+      { monsterId: "mon_gale_rogue", name: "Bandit", traits: ["agile"] },
+      { monsterId: "mon_storm_jaguar", name: "Beast", traits: ["agile"] },
+    ],
+  },
+};
+
+const ACTION_RULES = {
+  attackCost: 5,
+  defendReward: -3,
+  swapCost: 10,
+  minActionSt: 5,
+  backlineRegen: 3,
+};
+
+const ITEM_DEFS = {
+  potion_small: {
+    id: "potion_small",
+    names: { en: "Small Potion", ja: "ちいさなポーション" },
+    healAmount: 20,
   },
 };
 
@@ -32,11 +47,19 @@ const TRANSLATIONS = {
     cmd_attack: "Attack",
     cmd_defend: "Defend",
     cmd_item: "Item",
+    cmd_swap: "Swap",
     hp_label: "HP",
+    st_label: "ST",
+    player_party_label: "Player Party",
+    enemy_party_label: "Enemy Party",
+    swap_title: "Choose a backliner",
+    swap_cancel: "Cancel",
     result_title: "Result",
     result_player: "Player",
     result_enemy: "Enemy",
     result_back: "Back to Title",
+    result_player_party: "Player Party",
+    result_enemy_party: "Enemy Party",
     settings_title: "Settings",
     settings_language: "Language",
     settings_volume: "Volume",
@@ -57,6 +80,15 @@ const TRANSLATIONS = {
     result_victory: "Victory",
     result_defeat: "Defeat",
     settings_saved: "Settings saved.",
+    log_swap_request: "Swap request opened. Choose a backliner.",
+    log_swap_confirmed: "{outgoing} swaps with {incoming}.",
+    log_forced_swap: "{incoming} rushes in due to {reason}.",
+    log_backline_regen: "{party} backline recovers {amount} ST.",
+    log_st_lockout: "{name} cannot act until ST recovers!",
+    log_no_swap_targets: "No healthy backline members remain.",
+    log_enemy_hp_update: "{enemy} HP {current}/{max}.",
+    log_item_front: "{player} shares {item} with {target} and recovers {amount} HP.",
+    low_st_label: "Low ST",
   },
   ja: {
     game_title: "カジュアルターンバトル",
@@ -69,11 +101,19 @@ const TRANSLATIONS = {
     cmd_attack: "こうげき",
     cmd_defend: "ぼうぎょ",
     cmd_item: "アイテム",
+    cmd_swap: "こうたい",
     hp_label: "HP",
+    st_label: "ST",
+    player_party_label: "プレイヤーパーティー",
+    enemy_party_label: "てきパーティー",
+    swap_title: "後衛を選択",
+    swap_cancel: "キャンセル",
     result_title: "リザルト",
     result_player: "プレイヤー",
     result_enemy: "てき",
     result_back: "タイトルにもどる",
+    result_player_party: "プレイヤーパーティー",
+    result_enemy_party: "てきパーティー",
     settings_title: "設定",
     settings_language: "言語",
     settings_volume: "音量",
@@ -94,6 +134,15 @@ const TRANSLATIONS = {
     result_victory: "しょうり",
     result_defeat: "はいぼく",
     settings_saved: "設定を保存しました。",
+    log_swap_request: "こうたいモーダルをひらきました。後衛をえらんでください。",
+    log_swap_confirmed: "{outgoing}と{incoming}が入れ替わった！",
+    log_forced_swap: "{reason}で{incoming}が強制的に前衛へ！",
+    log_backline_regen: "{party}後衛が{amount}ST回復。",
+    log_st_lockout: "{name}はST不足で行動できない！",
+    log_no_swap_targets: "健常な後衛が残っていません。",
+    log_enemy_hp_update: "{enemy}のHP {current}/{max}。",
+    log_item_front: "{player}は{target}に{item}をわたし{amount}回復した。",
+    low_st_label: "ST不足",
   },
 };
 
@@ -156,11 +205,7 @@ class SaveManager {
     return {
       version: 1,
       player: {
-        name: DATA.player.name,
-        maxHP: DATA.player.maxHP,
-        attack: DATA.player.attack,
-        defense: DATA.player.defense,
-        items: DATA.player.items.map((item) => ({ ...item })),
+        items: Object.values(ITEM_DEFS).map((item) => ({ id: item.id, count: 1 })),
       },
       progress: { wins: 0, losses: 0 },
       settings: { language: "ja", volume: 0.6 },
@@ -269,6 +314,7 @@ class AudioManager {
       damage: 320,
       win: 880,
       lose: 200,
+      swap: 520,
     }[name] || 440;
     osc.frequency.setValueAtTime(base, now);
     gain.gain.setValueAtTime(0.25, now);
@@ -279,26 +325,65 @@ class AudioManager {
   }
 }
 
+class GameDataLoader {
+  constructor() {
+    this.monsters = {};
+    this.moves = {};
+  }
+
+  async load() {
+    const [monstersRes, movesRes] = await Promise.all([
+      fetch("../data/monsters.json").then((res) => res.json()),
+      fetch("../data/moves.json").then((res) => res.json()),
+    ]);
+    this.monsters = Object.fromEntries(monstersRes.monsters.map((monster) => [monster.id, monster]));
+    this.moves = Object.fromEntries(movesRes.moves.map((move) => [move.id, move]));
+  }
+
+  getMonster(id) {
+    return this.monsters[id];
+  }
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 class GameApp {
   constructor() {
     this.localization = new Localization();
     this.analytics = new Analytics();
     this.saveManager = new SaveManager();
     this.audio = new AudioManager(this.saveManager);
+    this.dataLoader = new GameDataLoader();
 
     this.state = "Boot";
-    this.player = null;
-    this.enemy = null;
+    this.parties = { player: null, enemy: null };
     this.inventory = {};
-    this.playerGuard = false;
-    this.enemyGuard = false;
-
     this.lastResult = null;
+    this.dataReady = false;
+    this.turnOwner = "player";
+    this.turnCount = 0;
 
     this.cacheDom();
     this.bindEvents();
+    this.initialize();
+  }
+
+  async initialize() {
+    await this.loadGameData();
     this.loadFromSave();
     this.bootstrap();
+  }
+
+  async loadGameData() {
+    try {
+      await this.dataLoader.load();
+      this.dataReady = true;
+    } catch (err) {
+      console.error("Failed to load data", err);
+      this.logSystem("Failed to load battle data.");
+    }
   }
 
   cacheDom() {
@@ -319,6 +404,8 @@ class GameApp {
       attack: document.getElementById("cmd-attack"),
       defend: document.getElementById("cmd-defend"),
       item: document.getElementById("cmd-item"),
+      swap: document.getElementById("cmd-swap"),
+      swapCancel: document.getElementById("btn-swap-cancel"),
     };
     this.dialogs = {
       settings: document.getElementById("settings-dialog"),
@@ -327,70 +414,84 @@ class GameApp {
     this.labels = {
       wins: document.getElementById("wins-count"),
       losses: document.getElementById("losses-count"),
-      playerName: document.getElementById("player-name"),
-      enemyName: document.getElementById("enemy-name"),
-      playerHpText: document.getElementById("player-hp-text"),
-      enemyHpText: document.getElementById("enemy-hp-text"),
-      playerHpBar: document.getElementById("player-hp-bar"),
-      enemyHpBar: document.getElementById("enemy-hp-bar"),
-      inventory: document.getElementById("inventory-display"),
       battleLog: document.getElementById("battle-log"),
+      inventory: document.getElementById("inventory-display"),
+      playerFrontName: document.getElementById("player-front-name"),
+      playerFrontHpText: document.getElementById("player-front-hp-text"),
+      playerFrontHpBar: document.getElementById("player-front-hp-bar"),
+      playerFrontStText: document.getElementById("player-front-st-text"),
+      playerFrontStBar: document.getElementById("player-front-st-bar"),
+      playerFrontTraits: document.getElementById("player-front-traits"),
+      playerBackline: document.getElementById("player-backline"),
+      enemyFrontName: document.getElementById("enemy-front-name"),
+      enemyFrontHpText: document.getElementById("enemy-front-hp-text"),
+      enemyFrontHpBar: document.getElementById("enemy-front-hp-bar"),
+      enemyBackline: document.getElementById("enemy-backline"),
+      swapPanel: document.getElementById("swap-panel"),
+      swapCandidates: document.getElementById("swap-candidates"),
       resultTitle: document.getElementById("result-title"),
-      resultPlayerHp: document.getElementById("result-player-hp"),
-      resultEnemyHp: document.getElementById("result-enemy-hp"),
-      languageSelect: document.getElementById("settings-language"),
-      volumeSlider: document.getElementById("settings-volume"),
+      resultPlayerList: document.getElementById("result-player-party"),
+      resultEnemyList: document.getElementById("result-enemy-party"),
+    };
+    this.inputs = {
+      language: document.getElementById("settings-language"),
+      volume: document.getElementById("settings-volume"),
     };
   }
 
   bindEvents() {
-    this.buttons.start.addEventListener("click", () => this.handleStart());
-    this.buttons.settings.addEventListener("click", () => this.openSettings());
-    this.buttons.exit.addEventListener("click", () => this.openExit());
-    this.buttons.resultTitle.addEventListener("click", () => this.gotoTitle());
-    this.buttons.resultExit.addEventListener("click", () => this.openExit());
-    this.buttons.settingsClose.addEventListener("click", () => this.closeSettings());
-    this.buttons.exitClose.addEventListener("click", () => this.closeExit());
+    this.buttons.start?.addEventListener("click", () => this.handleStart());
+    this.buttons.settings?.addEventListener("click", () => this.openSettings());
+    this.buttons.settingsClose?.addEventListener("click", () => this.closeSettings());
+    this.buttons.exit?.addEventListener("click", () => this.openExit());
+    this.buttons.exitClose?.addEventListener("click", () => this.closeExit());
+    this.buttons.resultTitle?.addEventListener("click", () => this.gotoTitle());
+    this.buttons.resultExit?.addEventListener("click", () => this.openExit());
 
-    this.labels.languageSelect.addEventListener("change", (event) => {
+    this.buttons.attack?.addEventListener("click", () => this.playerAction("attack"));
+    this.buttons.defend?.addEventListener("click", () => this.playerAction("defend"));
+    this.buttons.item?.addEventListener("click", () => this.playerAction("item"));
+    this.buttons.swap?.addEventListener("click", () => this.openSwapPanel());
+    this.buttons.swapCancel?.addEventListener("click", () => this.closeSwapPanel());
+    this.labels.swapCandidates?.addEventListener("click", (event) => {
+      const target = event.target.closest("button[data-index]");
+      if (!target) return;
+      const index = Number(target.getAttribute("data-index"));
+      this.executeVoluntarySwap(index);
+    });
+
+    this.inputs.language?.addEventListener("change", (event) => {
       this.localization.setLanguage(event.target.value);
-      this.onLanguageChanged();
       this.saveManager.data.settings.language = this.localization.language;
       this.saveManager.save();
+      this.onLanguageChanged();
     });
 
-    this.labels.volumeSlider.addEventListener("input", (event) => {
-      const value = parseFloat(event.target.value);
-      this.audio.setVolume(value);
+    this.inputs.volume?.addEventListener("input", (event) => {
+      const volume = Number(event.target.value);
+      this.audio.setVolume(volume);
     });
-
-    this.buttons.attack.addEventListener("click", () => this.playerAction("attack"));
-    this.buttons.defend.addEventListener("click", () => this.playerAction("defend"));
-    this.buttons.item.addEventListener("click", () => this.playerAction("item"));
   }
 
   loadFromSave() {
-    const { language, volume } = this.saveManager.data.settings;
-    this.localization.setLanguage(language);
-    this.onLanguageChanged();
-    this.labels.languageSelect.value = language;
-    this.labels.volumeSlider.value = volume;
-    this.audio.setVolume(volume);
+    this.localization.setLanguage(this.saveManager.data.settings.language);
+    this.localization.apply();
+    this.inputs.language.value = this.localization.language;
+    this.inputs.volume.value = this.saveManager.data.settings.volume;
     this.updateProgress();
   }
 
   bootstrap() {
-    this.analytics.track("start_game");
     this.setScreen("Boot");
+    this.analytics.track("start_game");
     setTimeout(() => {
-      this.gotoTitle();
-    }, 800);
+      this.setScreen("Title");
+    }, 600);
   }
 
   setScreen(name) {
     Object.entries(this.screens).forEach(([key, el]) => {
-      if (!el) return;
-      el.classList.toggle("screen--active", key === name);
+      el?.classList.toggle("screen--active", key === name);
     });
     this.state = name;
     if (name === "Title") {
@@ -443,58 +544,528 @@ class GameApp {
 
   async handleStart() {
     this.analytics.track("button_click", { id: "start" });
+    if (!this.dataReady) {
+      await this.loadGameData();
+    }
     await this.audio.ensureContext();
     this.startBattle();
   }
 
-  startBattle() {
-    this.analytics.track("start_battle");
-    const playerBase = DATA.player;
-    this.player = {
-      name: playerBase.name,
-      maxHP: playerBase.maxHP,
-      attack: playerBase.attack,
-      defense: playerBase.defense,
-      currentHP: playerBase.maxHP,
-    };
-    const enemyBase = DATA.enemies[Math.floor(Math.random() * DATA.enemies.length)];
-    this.enemy = {
-      name: enemyBase.name,
-      maxHP: enemyBase.maxHP,
-      attack: enemyBase.attack,
-      defense: enemyBase.defense,
-      currentHP: enemyBase.maxHP,
-    };
-    this.inventory = {};
-    DATA.player.items.forEach((item) => {
-      this.inventory[item.id] = item.count;
+  createPartyState(preset) {
+    const members = preset.members.map((slot) => {
+      const base = this.dataLoader.getMonster(slot.monsterId);
+      if (!base) {
+        throw new Error(`Missing monster ${slot.monsterId}`);
+      }
+      return {
+        id: base.id,
+        name: slot.name ?? base.name,
+        maxHP: slot.maxHP ?? base.hp,
+        currentHP: slot.currentHP ?? base.hp,
+        maxST: slot.maxST ?? base.st,
+        currentST: slot.currentST ?? base.st,
+        attack: slot.attack ?? base.atk,
+        defense: slot.defense ?? base.def,
+        traits: slot.traits ?? [],
+      };
     });
-    this.playerGuard = false;
-    this.enemyGuard = false;
-    this.lastResult = null;
-    this.labels.playerName.textContent = this.player.name;
-    this.labels.enemyName.textContent = this.enemy.name;
-    this.labels.battleLog.innerHTML = "";
-    this.updateHpDisplay();
-    this.updateInventoryDisplay();
-    this.setCommandsEnabled(true);
-    this.setScreen("Battle");
-    this.logSystem(this.localization.t("log_enemy_appears", { enemy: this.enemy.name }));
+    return {
+      label: preset.label,
+      members,
+      frontIndex: Math.min(preset.frontIndex ?? 0, members.length - 1),
+      guard: false,
+    };
   }
 
-  updateHpDisplay() {
-    if (!this.player || !this.enemy) return;
-    this.labels.playerHpText.textContent = `${this.player.currentHP}/${this.player.maxHP}`;
-    this.labels.enemyHpText.textContent = `${this.enemy.currentHP}/${this.enemy.maxHP}`;
-    const playerRatio = Math.max(0, this.player.currentHP) / this.player.maxHP;
-    const enemyRatio = Math.max(0, this.enemy.currentHP) / this.enemy.maxHP;
-    this.labels.playerHpBar.style.width = `${playerRatio * 100}%`;
-    this.labels.enemyHpBar.style.width = `${enemyRatio * 100}%`;
+  startBattle() {
+    if (!this.dataReady) return;
+    this.analytics.track("start_battle");
+    this.parties.player = this.createPartyState(PARTY_PRESETS.player);
+    this.parties.enemy = this.createPartyState(PARTY_PRESETS.enemy);
+    this.inventory = {};
+    this.saveManager.data.player.items.forEach((item) => {
+      this.inventory[item.id] = item.count;
+    });
+    this.lastResult = null;
+    this.turnOwner = "player";
+    this.turnCount = 1;
+    this.labels.battleLog.innerHTML = "";
+    this.renderParties();
+    this.updateInventoryDisplay();
+    this.setScreen("Battle");
+    this.closeSwapPanel();
+    const enemyFront = this.getFrontMember(this.parties.enemy);
+    if (enemyFront) {
+      this.logBattleEvent(
+        "turn_start",
+        this.localization.t("log_enemy_appears", { enemy: enemyFront.name }),
+        { actor: "enemy" }
+      );
+    }
+    this.setCommandsEnabled(true);
+  }
+
+  getFrontMember(party) {
+    if (!party) return null;
+    return party.members[party.frontIndex] ?? null;
+  }
+
+  findBacklineIndexes(party) {
+    if (!party) return [];
+    return party.members
+      .map((_, idx) => idx)
+      .filter((idx) => idx !== party.frontIndex && party.members[idx].currentHP > 0);
+  }
+
+  hasAvailableBackliner(party) {
+    return this.findBacklineIndexes(party).length > 0;
+  }
+
+  setCommandsEnabled(enabled) {
+    this.buttons.attack.disabled = !enabled;
+    this.buttons.defend.disabled = !enabled;
+    this.buttons.item.disabled = !enabled;
+    this.buttons.swap.disabled = !enabled || !this.canVoluntarySwap();
+  }
+
+  canVoluntarySwap() {
+    const playerParty = this.parties.player;
+    const front = this.getFrontMember(playerParty);
+    if (!playerParty || !front) return false;
+    if (front.currentHP <= 0) return false;
+    if (front.currentST < ACTION_RULES.swapCost) return false;
+    return this.hasAvailableBackliner(playerParty);
+  }
+
+  async playerAction(type) {
+    if (this.state !== "Battle") return;
+    if (type === "swap") {
+      this.openSwapPanel();
+      return;
+    }
+    let front = this.getFrontMember(this.parties.player);
+    if (!front || front.currentHP <= 0) return;
+    if (front.currentST < ACTION_RULES.minActionSt && type !== "item") {
+      const swapped = this.handleStLockout(this.parties.player, "player");
+      this.renderParties();
+      front = this.getFrontMember(this.parties.player);
+      if (!swapped || !front || front.currentST < ACTION_RULES.minActionSt) {
+        this.logBattleEvent(
+          "st_lockout",
+          this.localization.t("log_st_lockout", { name: front ? front.name : "" }),
+          { actor: "player" }
+        );
+        this.setCommandsEnabled(false);
+        return;
+      }
+    }
+    this.setCommandsEnabled(false);
+    let loggedTurn = false;
+    const ensureTurnLogged = () => {
+      if (!loggedTurn) {
+        this.logBattleEvent("turn_start", `Player turn ${this.turnCount}`, { actor: "player" });
+        loggedTurn = true;
+      }
+    };
+    if (type === "attack") {
+      ensureTurnLogged();
+      this.analytics.track("button_click", { id: "attack" });
+      await this.audio.playSfx("attack");
+      this.playerAttack();
+    } else if (type === "defend") {
+      ensureTurnLogged();
+      this.analytics.track("button_click", { id: "defend" });
+      await this.audio.playSfx("defend");
+      this.playerDefend();
+    } else if (type === "item") {
+      this.analytics.track("button_click", { id: "item" });
+      await this.audio.playSfx("item");
+      const used = this.playerUseItem();
+      if (!used) {
+        this.setCommandsEnabled(true);
+        return;
+      }
+      ensureTurnLogged();
+    }
+    this.renderParties();
+    if (await this.checkBattleResolution()) {
+      return;
+    }
+    await this.finalizePlayerTurn();
+  }
+
+  async finalizePlayerTurn() {
+    this.applyBacklineRegen(this.parties.player);
+    this.renderParties();
+    if (await this.checkBattleResolution()) {
+      return;
+    }
+    await this.delay(650);
+    await this.enemyTurn();
+    this.renderParties();
+    if (await this.checkBattleResolution()) {
+      return;
+    }
+    this.turnCount += 1;
+    this.setCommandsEnabled(true);
+  }
+
+  playerAttack() {
+    const attackerParty = this.parties.player;
+    const defenderParty = this.parties.enemy;
+    const attacker = this.getFrontMember(attackerParty);
+    const defender = this.getFrontMember(defenderParty);
+    if (!attacker || !defender) return;
+    const damage = this.calculateDamage(attacker, defender, defenderParty);
+    this.logBattleEvent(
+      "action_attack",
+      this.localization.t("log_player_attack", { player: attacker.name, enemy: defender.name, damage }),
+      { actor: "player" }
+    );
+    defender.currentHP = clamp(defender.currentHP - damage, 0, defender.maxHP);
+    this.logBattleEvent("damage_resolve", `${defender.name} HP ${defender.currentHP}/${defender.maxHP}`, {
+      actor: "player",
+      damage,
+    });
+    this.logBattleEvent(
+      "enemy_hp_update",
+      this.localization.t("log_enemy_hp_update", { enemy: defender.name, current: defender.currentHP, max: defender.maxHP }),
+      { enemy: defender.name, hp: defender.currentHP }
+    );
+    this.consumeStamina(attacker, ACTION_RULES.attackCost);
+    this.handleKnockout(defenderParty, "front_ko");
+  }
+
+  playerDefend() {
+    const party = this.parties.player;
+    const front = this.getFrontMember(party);
+    if (!front) return;
+    party.guard = true;
+    this.consumeStamina(front, ACTION_RULES.defendReward);
+    this.logBattleEvent("action_defend", this.localization.t("log_player_defend", { player: front.name }), {
+      actor: "player",
+    });
+  }
+
+  playerUseItem() {
+    const itemId = "potion_small";
+    const remaining = this.inventory[itemId] || 0;
+    if (remaining <= 0) {
+      this.logSystem(this.localization.t("log_no_items"));
+      return false;
+    }
+    const item = ITEM_DEFS[itemId];
+    const target = this.getFrontMember(this.parties.player);
+    if (!target) return false;
+    const before = target.currentHP;
+    target.currentHP = Math.min(target.maxHP, target.currentHP + item.healAmount);
+    const healed = target.currentHP - before;
+    this.inventory[itemId] = remaining - 1;
+    this.updateInventoryDisplay();
+    this.logBattleEvent(
+      "item_use",
+      this.localization.t("log_player_item", { player: target.name, item: this.getItemName(itemId), amount: healed }),
+      { actor: "player", item: itemId }
+    );
+    return true;
+  }
+
+  consumeStamina(member, amount) {
+    member.currentST = clamp(member.currentST - amount, 0, member.maxST);
+  }
+
+  calculateDamage(attacker, defender, defenderParty) {
+    const baseDamage = Math.max(1, attacker.attack - defender.defense);
+    if (defenderParty.guard) {
+      defenderParty.guard = false;
+      return Math.max(1, Math.floor(baseDamage / 2));
+    }
+    return baseDamage;
+  }
+
+  async enemyTurn() {
+    const party = this.parties.enemy;
+    const front = this.getFrontMember(party);
+    if (!front || front.currentHP <= 0) {
+      return;
+    }
+    this.logBattleEvent("turn_start", `Enemy turn ${this.turnCount}`, { actor: "enemy" });
+    if (front.currentST < ACTION_RULES.minActionSt) {
+      const swapped = this.handleStLockout(party, "enemy");
+      if (swapped) {
+        this.renderParties();
+      }
+    }
+    const currentFront = this.getFrontMember(party);
+    if (!currentFront) return;
+    if (currentFront.currentHP <= 0) return;
+    if (currentFront.currentST >= ACTION_RULES.attackCost) {
+      await this.audio.playSfx("damage");
+      this.enemyAttack();
+    } else {
+      await this.audio.playSfx("defend");
+      this.enemyDefend();
+    }
+    this.applyBacklineRegen(party);
+  }
+
+  enemyAttack() {
+    const attackerParty = this.parties.enemy;
+    const defenderParty = this.parties.player;
+    const attacker = this.getFrontMember(attackerParty);
+    const defender = this.getFrontMember(defenderParty);
+    if (!attacker || !defender) return;
+    const damage = this.calculateDamage(attacker, defender, defenderParty);
+    this.logBattleEvent(
+      "enemy_action_attack",
+      this.localization.t("log_enemy_attack", { enemy: attacker.name, player: defender.name, damage }),
+      { actor: "enemy" }
+    );
+    defender.currentHP = clamp(defender.currentHP - damage, 0, defender.maxHP);
+    this.logBattleEvent("damage_resolve", `${defender.name} HP ${defender.currentHP}/${defender.maxHP}`, {
+      actor: "enemy",
+      damage,
+    });
+    this.consumeStamina(attacker, ACTION_RULES.attackCost);
+    this.handleKnockout(defenderParty, "front_ko");
+  }
+
+  enemyDefend() {
+    const party = this.parties.enemy;
+    const front = this.getFrontMember(party);
+    if (!front) return;
+    party.guard = true;
+    this.consumeStamina(front, ACTION_RULES.defendReward);
+    this.logBattleEvent("enemy_action_defend", this.localization.t("log_enemy_defend", { enemy: front.name }), {
+      actor: "enemy",
+    });
+  }
+
+  applyBacklineRegen(party) {
+    if (!party) return;
+    const updates = [];
+    party.members.forEach((member, idx) => {
+      if (idx === party.frontIndex) return;
+      if (member.currentHP <= 0) return;
+      const before = member.currentST;
+      const after = clamp(member.currentST + ACTION_RULES.backlineRegen, 0, member.maxST);
+      member.currentST = after;
+      if (after !== before) {
+        updates.push({ name: member.name, amount: after - before });
+      }
+    });
+    if (updates.length) {
+      const total = updates.reduce((sum, entry) => sum + entry.amount, 0);
+      this.logBattleEvent(
+        "backline_st_regen",
+        this.localization.t("log_backline_regen", { party: party.label, amount: total }),
+        { party: party.label, updates }
+      );
+    }
+  }
+
+  handleKnockout(party, reason) {
+    if (!party) return;
+    const front = this.getFrontMember(party);
+    if (front && front.currentHP > 0) {
+      return;
+    }
+    if (!this.hasAvailableBackliner(party)) {
+      return;
+    }
+    this.forceSwap(party, reason);
+  }
+
+  handleStLockout(party, side) {
+    const front = this.getFrontMember(party);
+    if (!front) return false;
+    if (front.currentST >= ACTION_RULES.minActionSt) {
+      return false;
+    }
+    if (!this.hasAvailableBackliner(party)) {
+      this.logBattleEvent(
+        "st_lockout",
+        this.localization.t("log_st_lockout", { name: front.name }),
+        { actor: side }
+      );
+      return false;
+    }
+    return this.forceSwap(party, "st_lockout");
+  }
+
+  forceSwap(party, reason) {
+    const candidates = this.findBacklineIndexes(party);
+    if (!candidates.length) {
+      this.logBattleEvent("no_swap_available", this.localization.t("log_no_swap_targets"), { party: party.label });
+      return false;
+    }
+    const nextIndex = candidates[0];
+    const incoming = party.members[nextIndex];
+    party.frontIndex = nextIndex;
+    party.guard = false;
+    this.logBattleEvent(
+      "forced_swap",
+      this.localization.t("log_forced_swap", { incoming: incoming.name, reason }),
+      { party: party.label, reason }
+    );
+    return true;
+  }
+
+  openSwapPanel() {
+    if (!this.canVoluntarySwap()) {
+      this.logBattleEvent("swap_unavailable", this.localization.t("log_no_swap_targets"), { actor: "player" });
+      return;
+    }
+    this.renderSwapCandidates();
+    this.labels.swapPanel.setAttribute("aria-hidden", "false");
+    this.logBattleEvent("swap_request", this.localization.t("log_swap_request"), { actor: "player" });
+  }
+
+  closeSwapPanel() {
+    this.labels.swapPanel.setAttribute("aria-hidden", "true");
+  }
+
+  renderSwapCandidates() {
+    const party = this.parties.player;
+    const container = this.labels.swapCandidates;
+    container.innerHTML = "";
+    this.findBacklineIndexes(party).forEach((idx) => {
+      const member = party.members[idx];
+      const button = document.createElement("button");
+      button.className = "swap-candidate";
+      button.type = "button";
+      button.setAttribute("data-index", String(idx));
+      const info = document.createElement("div");
+      info.className = "swap-candidate__info";
+      info.innerHTML = `<strong>${member.name}</strong><span class="swap-candidate__status">${member.currentHP}/${member.maxHP} HP · ${member.currentST}/${member.maxST} ST</span>`;
+      const warning = document.createElement("div");
+      warning.className = "swap-candidate__warning";
+      if (member.currentST < ACTION_RULES.minActionSt) {
+        warning.textContent = this.localization.t("low_st_label");
+      }
+      button.appendChild(info);
+      if (warning.textContent) {
+        button.appendChild(warning);
+      }
+      container.appendChild(button);
+    });
+  }
+
+  async executeVoluntarySwap(index) {
+    const party = this.parties.player;
+    const front = this.getFrontMember(party);
+    if (!front) return;
+    const target = party.members[index];
+    if (!target || target.currentHP <= 0) return;
+    if (front.currentST < ACTION_RULES.swapCost) {
+      this.logBattleEvent("swap_unavailable", this.localization.t("log_st_lockout", { name: front.name }), { actor: "player" });
+      return;
+    }
+    this.logBattleEvent("turn_start", `Player turn ${this.turnCount}`, { actor: "player" });
+    await this.audio.playSfx("swap");
+    this.consumeStamina(front, ACTION_RULES.swapCost);
+    party.frontIndex = index;
+    this.closeSwapPanel();
+    this.logBattleEvent(
+      "swap_confirmed",
+      this.localization.t("log_swap_confirmed", { outgoing: front.name, incoming: target.name }),
+      { actor: "player" }
+    );
+    this.renderParties();
+    if (await this.checkBattleResolution()) {
+      return;
+    }
+    await this.finalizePlayerTurn();
+  }
+
+  renderParties() {
+    this.renderFrontCard(this.parties.player, {
+      nameEl: this.labels.playerFrontName,
+      hpTextEl: this.labels.playerFrontHpText,
+      hpBarEl: this.labels.playerFrontHpBar,
+      stTextEl: this.labels.playerFrontStText,
+      stBarEl: this.labels.playerFrontStBar,
+      traitsEl: this.labels.playerFrontTraits,
+      showSt: true,
+    });
+    this.renderBackline(this.parties.player, this.labels.playerBackline, true);
+    this.renderFrontCard(this.parties.enemy, {
+      nameEl: this.labels.enemyFrontName,
+      hpTextEl: this.labels.enemyFrontHpText,
+      hpBarEl: this.labels.enemyFrontHpBar,
+      showSt: false,
+    });
+    this.renderBackline(this.parties.enemy, this.labels.enemyBackline, false);
+    this.updateInventoryDisplay();
+    this.buttons.swap.disabled = !this.canVoluntarySwap();
+  }
+
+  renderFrontCard(party, refs) {
+    const front = this.getFrontMember(party);
+    if (!front) {
+      if (refs.nameEl) refs.nameEl.textContent = "-";
+      if (refs.hpTextEl) refs.hpTextEl.textContent = "0/0";
+      if (refs.hpBarEl) refs.hpBarEl.style.width = "0%";
+      if (refs.showSt && refs.stTextEl) refs.stTextEl.textContent = "0/0";
+      if (refs.showSt && refs.stBarEl) refs.stBarEl.style.width = "0%";
+      if (refs.traitsEl) refs.traitsEl.innerHTML = "";
+      return;
+    }
+    refs.nameEl.textContent = front.name;
+    refs.hpTextEl.textContent = `${front.currentHP}/${front.maxHP}`;
+    refs.hpBarEl.style.width = `${(front.currentHP / front.maxHP) * 100}%`;
+    if (refs.showSt && refs.stTextEl && refs.stBarEl) {
+      refs.stTextEl.textContent = `${front.currentST}/${front.maxST}`;
+      refs.stBarEl.style.width = `${(front.currentST / front.maxST) * 100}%`;
+    }
+    if (refs.traitsEl) {
+      refs.traitsEl.innerHTML = "";
+      front.traits.forEach((trait) => {
+        const span = document.createElement("span");
+        span.className = "party__trait";
+        span.textContent = trait;
+        refs.traitsEl.appendChild(span);
+      });
+    }
+  }
+
+  renderBackline(party, container, showSt) {
+    container.innerHTML = "";
+    if (!party) return;
+    party.members.forEach((member, idx) => {
+      if (idx === party.frontIndex) return;
+      const card = document.createElement("div");
+      card.className = "backline-member";
+      const name = document.createElement("div");
+      name.className = "backline-member__name";
+      name.textContent = member.name;
+      const bars = document.createElement("div");
+      bars.className = "backline-member__bars";
+      const hpBar = document.createElement("div");
+      hpBar.className = "backline-member__gauge";
+      const hpFill = document.createElement("div");
+      hpFill.className = "backline-member__fill";
+      hpFill.style.width = `${(member.currentHP / member.maxHP) * 100}%`;
+      hpBar.appendChild(hpFill);
+      bars.appendChild(hpBar);
+      if (showSt) {
+        const stBar = document.createElement("div");
+        stBar.className = "backline-member__gauge";
+        const stFill = document.createElement("div");
+        stFill.className = "backline-member__fill backline-member__fill--st";
+        stFill.style.width = `${(member.currentST / member.maxST) * 100}%`;
+        stBar.appendChild(stFill);
+        bars.appendChild(stBar);
+      }
+      card.appendChild(name);
+      card.appendChild(bars);
+      container.appendChild(card);
+    });
   }
 
   updateInventoryDisplay() {
     const fragments = Object.entries(this.inventory).map(([id, count]) => {
-      const item = DATA.items[id];
+      const item = ITEM_DEFS[id];
       if (!item) return "";
       return this.localization.t("inventory_item", { item: this.getItemName(id), count });
     });
@@ -502,7 +1073,7 @@ class GameApp {
   }
 
   getItemName(itemId) {
-    const item = DATA.items[itemId];
+    const item = ITEM_DEFS[itemId];
     if (!item) return itemId;
     if (item.names) {
       return item.names[this.localization.language] || item.names.en || Object.values(item.names)[0];
@@ -519,134 +1090,48 @@ class GameApp {
     this.labels.battleLog.scrollTop = this.labels.battleLog.scrollHeight;
   }
 
-  setCommandsEnabled(enabled) {
-    this.buttons.attack.disabled = !enabled;
-    this.buttons.defend.disabled = !enabled;
-    this.buttons.item.disabled = !enabled;
+  logBattleEvent(key, message, payload = {}) {
+    const text = key ? `[${key}] ${message}` : message;
+    this.logSystem(text);
+    if (key) {
+      this.analytics.track(key, { ...payload, turn: this.turnCount });
+    }
   }
 
-  async playerAction(type) {
-    if (this.state !== "Battle") return;
-    this.setCommandsEnabled(false);
-    if (type === "attack") {
-      this.analytics.track("button_click", { id: "attack" });
-      await this.audio.playSfx("attack");
-      this.playerAttack();
-    } else if (type === "defend") {
-      this.analytics.track("button_click", { id: "defend" });
-      await this.audio.playSfx("defend");
-      this.playerDefend();
-    } else if (type === "item") {
-      this.analytics.track("button_click", { id: "item" });
-      await this.audio.playSfx("item");
-      const used = this.playerUseItem();
-      if (!used) {
-        this.setCommandsEnabled(true);
-        return;
-      }
-    }
-    this.updateHpDisplay();
-    if (this.enemy.currentHP <= 0) {
+  async checkBattleResolution() {
+    const playerDefeated = this.isPartyDefeated(this.parties.player);
+    const enemyDefeated = this.isPartyDefeated(this.parties.enemy);
+    if (enemyDefeated && !playerDefeated) {
       await this.finishBattle(true);
-      return;
+      return true;
     }
-    await this.delay(650);
-    await this.enemyTurn();
-    this.updateHpDisplay();
-    if (this.player.currentHP <= 0) {
+    if (playerDefeated) {
       await this.finishBattle(false);
-      return;
+      return true;
     }
-    this.setCommandsEnabled(true);
+    return false;
   }
 
-  playerAttack() {
-    const baseDamage = Math.max(1, this.player.attack - this.enemy.defense);
-    const damage = this.enemyGuard ? Math.max(1, Math.floor(baseDamage / 2)) : baseDamage;
-    if (this.enemyGuard) {
-      this.logSystem(this.localization.t("log_player_guard_break", { enemy: this.enemy.name }));
-      this.enemyGuard = false;
-    }
-    this.enemy.currentHP = Math.max(0, this.enemy.currentHP - damage);
-    this.logSystem(
-      this.localization.t("log_player_attack", {
-        player: this.player.name,
-        enemy: this.enemy.name,
-        damage,
-      })
-    );
-  }
-
-  playerDefend() {
-    this.playerGuard = true;
-    this.logSystem(
-      this.localization.t("log_player_defend", {
-        player: this.player.name,
-      })
-    );
-  }
-
-  playerUseItem() {
-    const itemId = "potion_small";
-    const remaining = this.inventory[itemId] || 0;
-    if (remaining <= 0) {
-      this.logSystem(this.localization.t("log_no_items"));
-      return false;
-    }
-    const item = DATA.items[itemId];
-    const before = this.player.currentHP;
-    this.player.currentHP = Math.min(this.player.maxHP, this.player.currentHP + item.healAmount);
-    const healed = this.player.currentHP - before;
-    this.inventory[itemId] = remaining - 1;
-    this.updateInventoryDisplay();
-    this.logSystem(
-      this.localization.t("log_player_item", {
-        player: this.player.name,
-        item: this.getItemName(itemId),
-        amount: healed,
-      })
-    );
-    return true;
-  }
-
-  async enemyTurn() {
-    if (this.enemy.currentHP <= 0) return;
-    if (this.enemy.currentHP <= 20) {
-      this.enemyGuard = true;
-      this.logSystem(this.localization.t("log_enemy_defend", { enemy: this.enemy.name }));
-      await this.audio.playSfx("defend");
-      return;
-    }
-    await this.audio.playSfx("damage");
-    const baseDamage = Math.max(1, this.enemy.attack - this.player.defense);
-    const damage = this.playerGuard ? Math.max(1, Math.floor(baseDamage / 2)) : baseDamage;
-    if (this.playerGuard) {
-      this.playerGuard = false;
-    }
-    this.player.currentHP = Math.max(0, this.player.currentHP - damage);
-    this.logSystem(
-      this.localization.t("log_enemy_attack", {
-        enemy: this.enemy.name,
-        player: this.player.name,
-        damage,
-      })
-    );
+  isPartyDefeated(party) {
+    if (!party) return true;
+    return party.members.every((member) => member.currentHP <= 0);
   }
 
   async finishBattle(playerWon) {
+    this.closeSwapPanel();
     this.setCommandsEnabled(false);
     if (playerWon) {
       await this.audio.playSfx("win");
       this.analytics.track("player_win");
       this.saveManager.data.progress.wins += 1;
       this.lastResult = "victory";
-      this.logSystem(this.localization.t("log_victory", { enemy: this.enemy.name }));
+      this.logBattleEvent("battle_end", this.localization.t("log_victory", { enemy: this.parties.enemy.label }));
     } else {
       await this.audio.playSfx("lose");
       this.analytics.track("player_lose");
       this.saveManager.data.progress.losses += 1;
       this.lastResult = "defeat";
-      this.logSystem(this.localization.t("log_defeat"));
+      this.logBattleEvent("battle_end", this.localization.t("log_defeat"));
     }
     this.saveManager.save();
     this.updateProgress();
@@ -656,11 +1141,21 @@ class GameApp {
   }
 
   updateResultScreen() {
-    if (!this.player || !this.enemy) return;
     const key = this.lastResult === "victory" ? "result_victory" : "result_defeat";
     this.labels.resultTitle.textContent = this.localization.t(key);
-    this.labels.resultPlayerHp.textContent = `${this.player.currentHP}/${this.player.maxHP}`;
-    this.labels.resultEnemyHp.textContent = `${this.enemy.currentHP}/${this.enemy.maxHP}`;
+    this.renderResultList(this.parties.player, this.labels.resultPlayerList, true);
+    this.renderResultList(this.parties.enemy, this.labels.resultEnemyList, false);
+  }
+
+  renderResultList(party, container, showSt) {
+    container.innerHTML = "";
+    if (!party) return;
+    party.members.forEach((member) => {
+      const item = document.createElement("li");
+      const stText = showSt ? ` / ST ${member.currentST}/${member.maxST}` : "";
+      item.textContent = `${member.name}: ${member.currentHP}/${member.maxHP}${stText}`;
+      container.appendChild(item);
+    });
   }
 
   delay(ms) {
