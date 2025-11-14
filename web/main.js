@@ -100,6 +100,7 @@ const TRANSLATIONS = {
     log_no_swap_targets: "No healthy backline members remain.",
     log_enemy_hp_update: "{enemy} HP {current}/{max}.",
     log_item_front: "{player} shares {item} with {target} and recovers {amount} HP.",
+    log_turn_end: "{actor} turn complete.",
     low_st_label: "Low ST",
     ko_label: "Down",
   },
@@ -158,6 +159,7 @@ const TRANSLATIONS = {
     log_no_swap_targets: "健常な後衛が残っていません。",
     log_enemy_hp_update: "{enemy}のHP {current}/{max}。",
     log_item_front: "{player}は{target}に{item}をわたし{amount}回復した。",
+    log_turn_end: "{actor}のターン終了。",
     low_st_label: "ST不足",
     ko_label: "戦闘不能",
   },
@@ -953,12 +955,14 @@ class GameApp {
   async finalizePlayerTurn() {
     this.applyBacklineRegen(this.parties.player);
     this.renderParties();
+    this.logTurnEnd("player");
     if (await this.checkBattleResolution()) {
       return;
     }
     await this.delay(650);
     await this.enemyTurn();
     this.renderParties();
+    this.logTurnEnd("enemy");
     if (await this.checkBattleResolution()) {
       return;
     }
@@ -1505,8 +1509,19 @@ class GameApp {
     const text = key ? `[${key}] ${message}` : message;
     this.logSystem(text);
     if (key) {
-      this.analytics.track(key, { ...payload, turn: this.turnCount });
+      const payloadWithContext = { ...payload, turn: this.turnCount };
+      console.info("[BattleEvent]", key, { message, ...payloadWithContext });
+      this.analytics.track(key, payloadWithContext);
+    } else if (message) {
+      console.info("[BattleLog]", message);
     }
+  }
+
+  logTurnEnd(actor) {
+    if (this.state !== "Battle") return;
+    const labelKey = actor === "enemy" ? "enemy_party_label" : "player_party_label";
+    const actorLabel = this.localization.t(labelKey);
+    this.logBattleEvent("turn_end", this.localization.t("log_turn_end", { actor: actorLabel }), { actor });
   }
 
   async checkBattleResolution() {
@@ -1575,5 +1590,8 @@ class GameApp {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  new GameApp();
+  const app = new GameApp();
+  if (typeof window !== "undefined") {
+    window.__casualGameApp = app;
+  }
 });

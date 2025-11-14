@@ -1,0 +1,15 @@
+{
+  "name": "web-casual-turn-based-game",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "lint:data": "npm exec -- jsonlint -q data/monsters.json && npm exec -- jsonlint -q data/moves.json && npm exec -- jsonlint -q data/types.json",
+    "validate:data": "python tools/validate_data.py --all",
+    "validate": "npm run lint:data && npm run validate:data",
+    "test:e2e": "playwright test web/tests"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.0",
+    "jsonlint": "^1.6.3"
+  }
+}
