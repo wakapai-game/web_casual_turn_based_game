@@ -30,6 +30,15 @@ Unity カジュアルターン制バトルゲーム
 
 各ファイルの詳細については`DESIGN_INDEX.md`をご参照ください。
 
+## プロトタイプ実装状況
+`game.py`に含まれるCLIサンプルは、素早くロジックを検証するための1vs1ミニマルフローであり、正式な3体パーティ仕様をまだ反映していません。以下の主要機能が未実装です。
+
+- **交代コマンド** – 前衛ST10以上で任意交代、撃破時の強制交代といった条件・コスト（`swapConditions`）がCLIにはありません。【F:docs/gameplay.yaml†L65-L85】
+- **パーティインデックス管理** – `frontIndex`とバックライン2枠を持つ3体編成や、それを前提とした受け入れテスト（`party_three_member_support`など）が未対応です。【F:docs/gameplay.yaml†L65-L89】【F:docs/tests.yaml†L10-L16】
+- **後衛ST回復** – backline recovery (+3 ST/ターン)や、それを検証する受け入れテストがCLIに組み込まれていません。【F:docs/gameplay.yaml†L86-L89】【F:docs/tests.yaml†L10-L16】
+
+CLIやその他のプロトタイプを拡張する際は、必ず`docs/gameplay.yaml`および`docs/tests.yaml`を権威仕様として参照し、これらの差分を解消してください。ブラウザ向けの`web/`実装は既に3体構成・交代UI・後衛ST回復を備えた振る舞いを持つため、期待挙動の参考になります。【F:web/main.js†L1-L58】【F:web/main.js†L106-L128】
+
 ## データ検証ワークフロー
 バトル用データ（`data/monsters.json` / `moves.json` / `types.json`）は`docs/vision.md`で定義されたスキーマに従っています。コミット前・CI前に以下のコマンドで検証してください。
 
