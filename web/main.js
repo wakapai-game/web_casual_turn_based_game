@@ -227,7 +227,7 @@ class SaveManager {
         items: Object.values(ITEM_DEFS).map((item) => ({ id: item.id, count: 1 })),
       },
       progress: { wins: 0, losses: 0 },
-      settings: { language: "ja", volume: 0.6 },
+      settings: { language: "ja", volume: 0.8 },
     };
   }
 
@@ -291,14 +291,15 @@ class AudioManager {
     const frequencyMap = {
       title: 220,
       battle: 330,
-      result: 262,
+      bgm_victory: 392,
+      bgm_defeat: 196,
     };
     const freq = frequencyMap[name] ?? 220;
     const osc = this.context.createOscillator();
     osc.type = "sine";
     osc.frequency.value = freq;
     const gain = this.context.createGain();
-    gain.gain.value = 0.08;
+    gain.gain.value = 0.5;
     osc.connect(gain).connect(this.masterGain);
     osc.start();
     this.bgmNode = osc;
@@ -336,7 +337,7 @@ class AudioManager {
       swap: 520,
     }[name] || 440;
     osc.frequency.setValueAtTime(base, now);
-    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.setValueAtTime(0.8, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
     osc.connect(gain).connect(this.masterGain);
     osc.start(now);
@@ -747,7 +748,8 @@ class GameApp {
     } else if (name === "Battle") {
       this.audio.playBgm("battle");
     } else if (name === "Result") {
-      this.audio.playBgm("result");
+      const cue = this.lastResult === "victory" ? "bgm_victory" : this.lastResult === "defeat" ? "bgm_defeat" : "bgm_victory";
+      this.audio.playBgm(cue);
     }
   }
 
