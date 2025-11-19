@@ -14,7 +14,72 @@ acceptance:
     - swap_button_interaction_logged: "Swap modal disables fainted monsters and logs selection/validation steps."
     - defeat_all_members_loss: "Losing all three members immediately routes to defeat handling."
     - hp_st_visibility_rules: "Player HP/ST visible per member, enemy HPのみ（バーのみ）でSTは非表示を維持。"
+    - hp_gauge_color_thresholds: "HP>=70% green, 30-69% yellow, <30% red with smooth gauge animation per docs/ui.md."
+    - st_gauge_behavior: "ST>=50% blue, 10-49% orange, 0% red blinking (1s) and only ally front cards render ST."
+    - front_back_visual_separation: "Front cards 250x300px opacity1.0 bold border vs back 120x150px opacity0.7 thin border with FRONT/BACK badges."
+    - attribute_and_stat_display: "Ally/enemy front cards show ATK/DEF/MAG/SPD plus elemental icon badges; back slots keep attribute icon + HP only."
+    - responsive_layout_requirement: "<=768px switches to vertical stack prioritizing HP/ST, keeping cards readable on mobile."
+    - fainted_state_feedback: "HP0 slots gray out, show 戦闘不能 text, disable swaps while logging cause."
 tests:
+  - name: "味方フロントステータス表示テスト"
+    description: "前衛カードにHP/ST/能力値/属性/バフ領域が揃っているか、色分岐とラベルを検証します。"
+    steps:
+      - "プレイヤー前衛のHPを70%以上・50%付近・20%以下に変化させ、ゲージ色が緑→黄→赤に変わることを確認します。"
+      - "STを60→30→0と変動させ、青→橙→赤点滅へ変化し、0%で1秒周期のblinkクラスが適用されることを確認します。"
+      - "ATK/DEF/MAG/SPDが⚔️/🛡️/✨/💨アイコンとともに表示され、バフ付与で緑、デバフで赤になることを確認します。"
+      - "カード左上の[FRONT]バッジ、右上の属性アイコン＋名称、下部のバフ/デバフ予約エリアが存在することを確認します。"
+    expected:
+      - "HP/STゲージ幅が0.3sトランジションで滑らかに変化し、数値表示が常に現在値/最大値を示す。"
+      - "ST=0時には赤色背景とblinkアニメが走り、ログに`st_zero_warning`が追記される。"
+
+  - name: "味方バック簡易表示テスト"
+    description: "バックカードではHPのみ＋属性/ラベルのみを表示し、交代可否と戦闘不能表示を確認します。"
+    steps:
+      - "バックモンスターを選択し、カードに[BACK]バッジと属性アイコンが付いていることを確認します。"
+      - "HPを0にし、カード全体がグレーアウト、`戦闘不能`テキストとロックアイコンが出てクリック不能になることを確認します。"
+      - "HP>0の状態でホバーした際に交代可能スタイル（ボーダー強調）が表示されることを確認します。"
+    expected:
+      - "バックカードにはSTゲージや能力値がDOM上で生成されない。"
+      - "HP0のカードには`aria-disabled=true`が付与され、交代モーダルでも候補から除外される。"
+
+  - name: "敵フロント表示差分テスト"
+    description: "敵前衛カードがHP+能力値のみで構成され、ST非表示かつ味方との色反転デザインになっているかを確認します。"
+    steps:
+      - "敵前衛HPを削り、色分岐が味方と同等であること、STゲージDOMが存在しないことをDevToolsで検証します。"
+      - "敵ATK/DEF/MAG/SPDが表示され、バフ/デバフ時に色変化することを確認します。"
+    expected:
+      - "`data-party='enemy'`配下のカードには`.st-gauge`要素が生成されない。"
+      - "能力値と属性アイコンは常に可視で、[FRONT]/[BACK]バッジが敵にも適用される。"
+
+  - name: "フロント/バック視覚差異テスト"
+    description: "カードサイズ、配置、opacity、枠線の差により前衛/後衛が視覚的に区別できることを確認します。"
+    steps:
+      - "ブラウザの要素検査で前衛カードの外寸が約250x300px、後衛が約120x150pxであることを測定します。"
+      - "前衛カードにopacity:1、後衛にopacity:0.7が適用されていることをCSSで確認します。"
+      - "z-indexと配置差（中央vs左右背面）が要件通りか、スクリーンショットを添付して確認します。"
+    expected:
+      - "フロントカードは太さ3pxボーダー＋ドロップシャドウ(0 8px 20px)、バックカードは1pxボーダー＋0 4px 12px影となる。"
+      - "前衛交代時には新カードがフェードインし、旧カードが後衛位置へスライドする。"
+
+  - name: "HP/STゲージカラー＆アニメテスト"
+    description: "ゲージ色・トランジション・ダメージシェイクが設定通りに動作するかを検証します。"
+    steps:
+      - "前衛に連続ダメージを与え、HPゲージが0.3sで滑らかに減り、カードが0.4sのshakeアニメを発火することを観察します。"
+      - "STを回復/消費し、各閾値でゲージ色が切り替わること、STが0の間はblinkアニメが継続することを確認します。"
+    expected:
+      - "`transition-duration:0.3s`がHP/STゲージに設定され、アニメ後に数値とゲージ幅が一致している。"
+      - "shakeアニメ終了時に`animationend`イベントでクラスが外れるログが残る。"
+
+  - name: "レスポンシブ表示テスト"
+    description: "スマホ幅で縦並び・情報優先順が守られているか、アコーディオンで能力値が折りたためるか確認します。"
+    steps:
+      - "DevToolsのデバイスモードで幅360pxに変更し、前衛→バック→コマンドの縦並びに切り替わることを確認します。"
+      - "能力値ブロックがアコーディオン化し、折りたたんでもHP/ST/属性行が表示され続けることを確認します。"
+      - "タップターゲットが44px以上で、スクロールせずにHP/ST情報が確認できることを確認します。"
+    expected:
+      - "CSSブレークポイント<=768pxで`flex-direction: column`に切り替わり、カード幅がデバイス幅90%以内に収まる。"
+      - "アコーディオン開閉でARIA属性が更新され、アクセシビリティ上の要件を満たす。"
+
   - name: "パーティー初期化テスト"
     description: "3体パーティーが前衛1・後衛2で初期化され、UI・ステータスが正しく同期されるか確認します。"
     steps:
