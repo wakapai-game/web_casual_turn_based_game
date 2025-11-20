@@ -44,6 +44,18 @@ const ITEM_DEFS = {
   },
 };
 
+const ELEMENT_INFO = {
+  fire: { icon: "🔥", labels: { en: "Fire", ja: "火" } },
+  water: { icon: "💧", labels: { en: "Water", ja: "水" } },
+  wind: { icon: "🌪️", labels: { en: "Wind", ja: "風" } },
+  earth: { icon: "🪨", labels: { en: "Earth", ja: "土" } },
+  thunder: { icon: "⚡", labels: { en: "Thunder", ja: "雷" } },
+  ice: { icon: "❄️", labels: { en: "Ice", ja: "氷" } },
+  light: { icon: "✨", labels: { en: "Light", ja: "光" } },
+  dark: { icon: "🌑", labels: { en: "Dark", ja: "闇" } },
+  neutral: { icon: "❔", labels: { en: "Neutral", ja: "無" } },
+};
+
 const TRANSLATIONS = {
   en: {
     game_title: "Casual Turn Battle",
@@ -59,6 +71,7 @@ const TRANSLATIONS = {
     cmd_swap: "Swap",
     hp_label: "HP",
     st_label: "ST",
+    stats_label: "Stats",
     player_party_label: "Player Party",
     enemy_party_label: "Enemy Party",
     swap_title: "Choose a backliner",
@@ -118,6 +131,7 @@ const TRANSLATIONS = {
     cmd_swap: "こうたい",
     hp_label: "HP",
     st_label: "ST",
+    stats_label: "能力値",
     player_party_label: "プレイヤーパーティー",
     enemy_party_label: "てきパーティー",
     swap_title: "後衛を選択",
@@ -608,9 +622,12 @@ class GameApp {
     this.turnCount = 0;
     this.swapSelectionIndex = null;
     this.forcedSwapTimeout = null;
+    this.frontlineMembers = { player: null, enemy: null };
+    this.transientClassTimers = {};
 
     this.cacheDom();
     this.bindEvents();
+    this.setupResponsiveStatPanels();
     this.initialize();
   }
 
@@ -661,16 +678,34 @@ class GameApp {
       losses: document.getElementById("losses-count"),
       battleLog: document.getElementById("battle-log"),
       inventory: document.getElementById("inventory-display"),
+      playerFrontCard: document.getElementById("player-front-card"),
       playerFrontName: document.getElementById("player-front-name"),
+      playerFrontElementIcon: document.getElementById("player-front-element-icon"),
+      playerFrontElementLabel: document.getElementById("player-front-element-label"),
+      playerFrontStatus: document.getElementById("player-front-status"),
+      playerFrontHpGauge: document.getElementById("player-front-hp-gauge"),
       playerFrontHpText: document.getElementById("player-front-hp-text"),
       playerFrontHpBar: document.getElementById("player-front-hp-bar"),
+      playerFrontStGauge: document.getElementById("player-front-st-gauge"),
       playerFrontStText: document.getElementById("player-front-st-text"),
       playerFrontStBar: document.getElementById("player-front-st-bar"),
-      playerFrontTraits: document.getElementById("player-front-traits"),
+      playerFrontAtk: document.getElementById("player-front-atk"),
+      playerFrontDef: document.getElementById("player-front-def"),
+      playerFrontMag: document.getElementById("player-front-mag"),
+      playerFrontSpd: document.getElementById("player-front-spd"),
       playerBackline: document.getElementById("player-backline"),
+      enemyFrontCard: document.getElementById("enemy-front-card"),
       enemyFrontName: document.getElementById("enemy-front-name"),
+      enemyFrontElementIcon: document.getElementById("enemy-front-element-icon"),
+      enemyFrontElementLabel: document.getElementById("enemy-front-element-label"),
+      enemyFrontStatus: document.getElementById("enemy-front-status"),
+      enemyFrontHpGauge: document.getElementById("enemy-front-hp-gauge"),
       enemyFrontHpText: document.getElementById("enemy-front-hp-text"),
       enemyFrontHpBar: document.getElementById("enemy-front-hp-bar"),
+      enemyFrontAtk: document.getElementById("enemy-front-atk"),
+      enemyFrontDef: document.getElementById("enemy-front-def"),
+      enemyFrontMag: document.getElementById("enemy-front-mag"),
+      enemyFrontSpd: document.getElementById("enemy-front-spd"),
       enemyBackline: document.getElementById("enemy-backline"),
       swapPanel: document.getElementById("swap-panel"),
       swapCandidates: document.getElementById("swap-candidates"),
@@ -685,6 +720,34 @@ class GameApp {
       language: document.getElementById("settings-language"),
       volume: document.getElementById("settings-volume"),
     };
+  }
+
+  setupResponsiveStatPanels() {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    this.statPanels = document.querySelectorAll(".frontline-card__stats-panel");
+    if (!this.statPanels.length) {
+      return;
+    }
+    this.statPanelMedia = window.matchMedia("(max-width: 768px)");
+    const applyState = () => {
+      const shouldCollapse = this.statPanelMedia?.matches;
+      this.statPanels.forEach((panel) => {
+        if (shouldCollapse) {
+          panel.removeAttribute("open");
+        } else {
+          panel.setAttribute("open", "true");
+        }
+      });
+    };
+    this.statPanelMediaHandler = () => applyState();
+    if (typeof this.statPanelMedia.addEventListener === "function") {
+      this.statPanelMedia.addEventListener("change", this.statPanelMediaHandler);
+    } else if (typeof this.statPanelMedia.addListener === "function") {
+      this.statPanelMedia.addListener(this.statPanelMediaHandler);
+    }
+    applyState();
   }
 
   bindEvents() {
@@ -807,7 +870,7 @@ class GameApp {
     this.startBattle();
   }
 
-  createPartyState(preset) {
+  createPartyState(preset, options = {}) {
     const members = preset.members.map((slot) => {
       const base = this.dataLoader.getMonster(slot.monsterId);
       if (!base) {
@@ -822,6 +885,9 @@ class GameApp {
         currentST: slot.currentST ?? base.st,
         attack: slot.attack ?? base.atk,
         defense: slot.defense ?? base.def,
+        magic: slot.magic ?? base.mag ?? 0,
+        speed: slot.speed ?? base.spd ?? 0,
+        element: slot.element ?? base.type ?? "neutral",
         traits: slot.traits ?? [],
       };
     });
@@ -830,14 +896,15 @@ class GameApp {
       members,
       frontIndex: Math.min(preset.frontIndex ?? 0, members.length - 1),
       guard: false,
+      isPlayer: Boolean(options.isPlayer),
     };
   }
 
   startBattle() {
     if (!this.dataReady) return;
     this.analytics.track("start_battle");
-    this.parties.player = this.createPartyState(PARTY_PRESETS.player);
-    this.parties.enemy = this.createPartyState(PARTY_PRESETS.enemy);
+    this.parties.player = this.createPartyState(PARTY_PRESETS.player, { isPlayer: true });
+    this.parties.enemy = this.createPartyState(PARTY_PRESETS.enemy, { isPlayer: false });
     this.enemyAI.reset();
     this.inventory = {};
     this.saveManager.data.player.items.forEach((item) => {
@@ -995,6 +1062,7 @@ class GameApp {
       { enemy: defender.name, hp: defender.currentHP }
     );
     this.consumeStamina(attacker, ACTION_RULES.attackCost);
+    this.triggerDamageFeedback("enemy");
     this.handleKnockout(defenderParty, "front_ko");
   }
 
@@ -1070,6 +1138,7 @@ class GameApp {
       damage,
     });
     this.consumeStamina(attacker, ACTION_RULES.attackCost);
+    this.triggerDamageFeedback("player");
     this.handleKnockout(defenderParty, "front_ko");
   }
 
@@ -1103,6 +1172,7 @@ class GameApp {
       damage,
     });
     this.consumeStamina(attacker, ACTION_RULES.heavySkillCost);
+    this.triggerDamageFeedback("player");
     this.handleKnockout(defenderParty, "front_ko");
   }
 
@@ -1367,96 +1437,189 @@ class GameApp {
   }
 
   renderParties() {
-    this.renderFrontCard(this.parties.player, {
-      nameEl: this.labels.playerFrontName,
-      hpTextEl: this.labels.playerFrontHpText,
-      hpBarEl: this.labels.playerFrontHpBar,
-      stTextEl: this.labels.playerFrontStText,
-      stBarEl: this.labels.playerFrontStBar,
-      traitsEl: this.labels.playerFrontTraits,
-      showSt: true,
-    });
-    this.renderBackline(this.parties.player, this.labels.playerBackline, true);
-    this.renderFrontCard(this.parties.enemy, {
-      nameEl: this.labels.enemyFrontName,
-      hpTextEl: this.labels.enemyFrontHpText,
-      hpBarEl: this.labels.enemyFrontHpBar,
-      showSt: false,
-    });
-    this.renderBackline(this.parties.enemy, this.labels.enemyBackline, false);
+    const playerParty = this.parties.player;
+    if (playerParty) {
+      this.updateMonsterDisplay(playerParty, playerParty.frontIndex, {
+        context: "player",
+        cardEl: this.labels.playerFrontCard,
+        nameEl: this.labels.playerFrontName,
+        elementIconEl: this.labels.playerFrontElementIcon,
+        elementLabelEl: this.labels.playerFrontElementLabel,
+        statusEl: this.labels.playerFrontStatus,
+        hpTextEl: this.labels.playerFrontHpText,
+        hpBarEl: this.labels.playerFrontHpBar,
+        hpGaugeEl: this.labels.playerFrontHpGauge,
+        stTextEl: this.labels.playerFrontStText,
+        stBarEl: this.labels.playerFrontStBar,
+        stGaugeEl: this.labels.playerFrontStGauge,
+        showSt: true,
+        stats: {
+          atk: this.labels.playerFrontAtk,
+          def: this.labels.playerFrontDef,
+          mag: this.labels.playerFrontMag,
+          spd: this.labels.playerFrontSpd,
+        },
+      });
+      this.updateMonsterDisplay(playerParty, -1, {
+        backlineContainer: this.labels.playerBackline,
+        context: "player",
+      });
+    }
+    const enemyParty = this.parties.enemy;
+    if (enemyParty) {
+      this.updateMonsterDisplay(enemyParty, enemyParty.frontIndex, {
+        context: "enemy",
+        cardEl: this.labels.enemyFrontCard,
+        nameEl: this.labels.enemyFrontName,
+        elementIconEl: this.labels.enemyFrontElementIcon,
+        elementLabelEl: this.labels.enemyFrontElementLabel,
+        statusEl: this.labels.enemyFrontStatus,
+        hpTextEl: this.labels.enemyFrontHpText,
+        hpBarEl: this.labels.enemyFrontHpBar,
+        hpGaugeEl: this.labels.enemyFrontHpGauge,
+        stats: {
+          atk: this.labels.enemyFrontAtk,
+          def: this.labels.enemyFrontDef,
+          mag: this.labels.enemyFrontMag,
+          spd: this.labels.enemyFrontSpd,
+        },
+      });
+      this.updateMonsterDisplay(enemyParty, -1, {
+        backlineContainer: this.labels.enemyBackline,
+        context: "enemy",
+      });
+    }
     this.updateInventoryDisplay();
     this.buttons.swap.disabled = !this.canVoluntarySwap();
   }
 
-  renderFrontCard(party, refs) {
-    const front = this.getFrontMember(party);
-    if (!front) {
-      if (refs.nameEl) refs.nameEl.textContent = "-";
-      if (refs.hpTextEl) refs.hpTextEl.textContent = "0/0";
-      if (refs.hpBarEl) refs.hpBarEl.style.width = "0%";
-      if (refs.showSt && refs.stTextEl) refs.stTextEl.textContent = "0/0";
-      if (refs.showSt && refs.stBarEl) refs.stBarEl.style.width = "0%";
-      if (refs.traitsEl) refs.traitsEl.innerHTML = "";
-      return;
-    }
-    refs.nameEl.textContent = front.name;
-    refs.hpTextEl.textContent = `${front.currentHP}/${front.maxHP}`;
-    refs.hpBarEl.style.width = `${(front.currentHP / front.maxHP) * 100}%`;
-    if (refs.showSt && refs.stTextEl && refs.stBarEl) {
-      refs.stTextEl.textContent = `${front.currentST}/${front.maxST}`;
-      refs.stBarEl.style.width = `${(front.currentST / front.maxST) * 100}%`;
-    }
-    if (refs.traitsEl) {
-      refs.traitsEl.innerHTML = "";
-      front.traits.forEach((trait) => {
-        const span = document.createElement("span");
-        span.className = "party__trait";
-        span.textContent = trait;
-        refs.traitsEl.appendChild(span);
-      });
+  updateMonsterDisplay(party, monsterIndex, refs = {}) {
+    if (!party) return;
+    const isFrontMonster = party.frontIndex === monsterIndex;
+    if (isFrontMonster) {
+      this.renderFrontCard(party, refs);
+    } else if (refs.backlineContainer && refs.context) {
+      this.renderBackline(party, refs.backlineContainer, refs.context);
     }
   }
 
-  renderBackline(party, container, showSt) {
-    if (!container) return;
+  renderFrontCard(party, refs = {}) {
+    const front = this.getFrontMember(party);
+    const hpMax = front?.maxHP ?? 0;
+    const hpCurrent = front ? clamp(front.currentHP, 0, hpMax) : 0;
+    const hpPercent = hpMax > 0 ? clamp((hpCurrent / hpMax) * 100, 0, 100) : 0;
+    const stMax = front?.maxST ?? 0;
+    const stCurrent = front ? clamp(front.currentST, 0, stMax) : 0;
+    const stPercent = stMax > 0 ? clamp((stCurrent / stMax) * 100, 0, 100) : 0;
+    const elementInfo = this.getElementDisplay(front?.element);
+
+    refs.nameEl?.textContent = front ? front.name : "-";
+    refs.elementIconEl?.setAttribute("data-element", front?.element ?? "neutral");
+    if (refs.elementIconEl) {
+      refs.elementIconEl.textContent = elementInfo.icon;
+    }
+    if (refs.elementLabelEl) {
+      refs.elementLabelEl.textContent = elementInfo.label;
+    }
+    if (refs.hpTextEl) {
+      refs.hpTextEl.textContent = `${hpCurrent}/${hpMax}`;
+    }
+    if (refs.hpBarEl) {
+      refs.hpBarEl.style.width = `${hpPercent}%`;
+    }
+    if (refs.hpGaugeEl) {
+      this.applyGaugeState(refs.hpGaugeEl, "hp", hpPercent);
+    }
+    if (refs.showSt && refs.stTextEl && refs.stBarEl && refs.stGaugeEl) {
+      refs.stTextEl.textContent = `${stCurrent}/${stMax}`;
+      refs.stBarEl.style.width = `${stPercent}%`;
+      this.applyGaugeState(refs.stGaugeEl, "st", stPercent);
+    } else if (refs.stGaugeEl) {
+      this.applyGaugeState(refs.stGaugeEl, "st", 0);
+      if (refs.stTextEl) {
+        refs.stTextEl.textContent = "0/0";
+      }
+      if (refs.stBarEl) {
+        refs.stBarEl.style.width = "0%";
+      }
+    }
+    if (refs.stats) {
+      refs.stats.atk && (refs.stats.atk.textContent = front ? front.attack : 0);
+      refs.stats.def && (refs.stats.def.textContent = front ? front.defense : 0);
+      refs.stats.mag && (refs.stats.mag.textContent = front ? front.magic : 0);
+      refs.stats.spd && (refs.stats.spd.textContent = front ? front.speed : 0);
+    }
+    const isDown = !front || front.currentHP <= 0;
+    if (refs.cardEl) {
+      refs.cardEl.classList.toggle("frontline-card--down", isDown);
+    }
+    if (refs.statusEl) {
+      refs.statusEl.textContent = isDown ? this.localization.t("ko_label") : "";
+    }
+    if (refs.context) {
+      this.rememberFrontline(refs.context, front?.id ?? null);
+    }
+  }
+
+  renderBackline(party, container, context) {
+    if (!container || !party) return;
     container.innerHTML = "";
-    if (!party) return;
     const hpLabel = this.localization.t("hp_label");
-    const stLabel = this.localization.t("st_label");
+    const koLabel = this.localization.t("ko_label");
+    const swapLabel = this.localization.t("cmd_swap");
+    const isPlayerSide = context === "player";
     party.members.forEach((member, idx) => {
       if (idx === party.frontIndex) return;
       const card = document.createElement("div");
-      card.className = "backline-card";
+      card.className = `backline-card${context === "enemy" ? " backline-card--enemy" : ""}`;
       card.setAttribute("role", "listitem");
-      if (member.currentHP <= 0) {
-        card.classList.add("backline-card--down");
-      }
+      const isDown = member.currentHP <= 0;
+      card.setAttribute("aria-disabled", isDown ? "true" : "false");
+      card.classList.toggle("backline-card--down", isDown);
+      card.classList.toggle("backline-card--interactive", isPlayerSide && !isDown);
+      const badge = document.createElement("span");
+      badge.className = "backline-card__badge";
+      badge.setAttribute("aria-hidden", "true");
+      badge.textContent = "[BACK]";
+      card.appendChild(badge);
+      const header = document.createElement("div");
+      header.className = "backline-card__header";
       const name = document.createElement("div");
       name.className = "backline-card__name";
       name.textContent = member.name;
-      card.appendChild(name);
-      card.appendChild(this.createMiniGauge(hpLabel, member.currentHP, member.maxHP, false));
-      if (showSt) {
-        card.appendChild(this.createMiniGauge(stLabel, member.currentST, member.maxST, true));
-      }
-      if (member.traits && member.traits.length) {
-        const traits = document.createElement("div");
-        traits.className = "backline-card__traits";
-        member.traits.forEach((trait) => {
-          const badge = document.createElement("span");
-          badge.className = "party__trait";
-          badge.textContent = trait;
-          traits.appendChild(badge);
-        });
-        card.appendChild(traits);
-      }
+      header.appendChild(name);
+      const element = document.createElement("div");
+      element.className = "backline-card__element";
+      const elementInfo = this.getElementDisplay(member.element);
+      const icon = document.createElement("span");
+      icon.className = "backline-card__element-icon";
+      icon.textContent = elementInfo.icon;
+      const label = document.createElement("span");
+      label.className = "backline-card__element-label";
+      label.textContent = elementInfo.label;
+      element.appendChild(icon);
+      element.appendChild(label);
+      header.appendChild(element);
+      card.appendChild(header);
+      card.appendChild(
+        this.createMiniGauge({
+          label: hpLabel,
+          current: member.currentHP,
+          max: member.maxHP,
+          type: "hp",
+        })
+      );
+      const status = document.createElement("div");
+      status.className = "backline-card__status";
+      status.textContent = isDown ? koLabel : isPlayerSide ? swapLabel : "";
+      card.appendChild(status);
       container.appendChild(card);
     });
   }
 
-  createMiniGauge(label, current, max, isSt) {
+  createMiniGauge({ label, current, max, type = "hp" }) {
     const wrapper = document.createElement("div");
-    wrapper.className = "mini-gauge";
+    wrapper.className = `mini-gauge mini-gauge--${type}`;
     const meta = document.createElement("div");
     meta.className = "mini-gauge__meta";
     const left = document.createElement("span");
@@ -1469,15 +1632,91 @@ class GameApp {
     track.className = "mini-gauge__track";
     const fill = document.createElement("div");
     fill.className = "mini-gauge__fill";
-    if (isSt) {
-      fill.classList.add("mini-gauge__fill--st");
-    }
     const percent = max > 0 ? clamp((current / max) * 100, 0, 100) : 0;
     fill.style.width = `${percent}%`;
     track.appendChild(fill);
     wrapper.appendChild(meta);
     wrapper.appendChild(track);
+    this.applyMiniGaugeState(wrapper, type, percent);
     return wrapper;
+  }
+
+  applyGaugeState(gaugeEl, type, percent) {
+    if (!gaugeEl) return;
+    const states = type === "hp" ? ["healthy", "warning", "critical"] : ["full", "low", "zero"];
+    states.forEach((state) => gaugeEl.classList.remove(`gauge--${type}-${state}`));
+    const state = this.resolveGaugeState(type, percent);
+    gaugeEl.classList.add(`gauge--${type}-${state}`);
+    if (type === "st") {
+      gaugeEl.classList.toggle("gauge--st-zero", state === "zero");
+    }
+  }
+
+  applyMiniGaugeState(wrapper, type, percent) {
+    if (!wrapper) return;
+    const states = type === "hp" ? ["healthy", "warning", "critical"] : ["full", "low", "zero"];
+    states.forEach((state) => wrapper.classList.remove(`mini-gauge--${type}-${state}`));
+    const state = this.resolveGaugeState(type, percent);
+    wrapper.classList.add(`mini-gauge--${type}-${state}`);
+  }
+
+  resolveGaugeState(type, percent) {
+    const value = clamp(percent, 0, 100);
+    if (type === "st") {
+      if (value <= 0) return "zero";
+      if (value < 50) return "low";
+      return "full";
+    }
+    if (value >= 70) return "healthy";
+    if (value >= 30) return "warning";
+    return "critical";
+  }
+
+  getElementDisplay(elementType) {
+    const info = ELEMENT_INFO[elementType] || ELEMENT_INFO.neutral;
+    const label = info.labels?.[this.localization.language] ?? info.labels?.en ?? elementType ?? "-";
+    return { icon: info.icon, label };
+  }
+
+  rememberFrontline(side, monsterId) {
+    if (!side) return;
+    if (!monsterId) {
+      this.frontlineMembers[side] = null;
+      return;
+    }
+    if (this.frontlineMembers[side] === monsterId) {
+      return;
+    }
+    this.frontlineMembers[side] = monsterId;
+    this.triggerFrontlineEntry(side);
+  }
+
+  triggerFrontlineEntry(side) {
+    const card = side === "enemy" ? this.labels.enemyFrontCard : this.labels.playerFrontCard;
+    this.applyTransientClass(card, "frontline-card--enter", 700);
+  }
+
+  triggerDamageFeedback(side) {
+    const card = side === "enemy" ? this.labels.enemyFrontCard : this.labels.playerFrontCard;
+    this.applyTransientClass(card, "frontline-card--shake", 520);
+  }
+
+  applyTransientClass(element, className, duration = 600) {
+    if (!element || typeof window === "undefined") return;
+    const key = `${element.id || className}-${className}`;
+    if (!this.transientClassTimers) {
+      this.transientClassTimers = {};
+    }
+    if (this.transientClassTimers[key]) {
+      clearTimeout(this.transientClassTimers[key]);
+    }
+    element.classList.remove(className);
+    void element.offsetWidth;
+    element.classList.add(className);
+    this.transientClassTimers[key] = window.setTimeout(() => {
+      element.classList.remove(className);
+      delete this.transientClassTimers[key];
+    }, duration);
   }
 
   updateInventoryDisplay() {
