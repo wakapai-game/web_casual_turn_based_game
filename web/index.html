@@ -62,10 +62,19 @@
                 </header>
                 <div class="party__field">
                   <article class="frontline-card" id="player-front-card">
-                    <div class="frontline-card__name" id="player-front-name">-</div>
-                    <div class="frontline-card__traits" id="player-front-traits"></div>
+                    <div class="frontline-card__header">
+                      <span class="frontline-card__badge" aria-hidden="true">[FRONT]</span>
+                      <div class="frontline-card__identity">
+                        <div class="frontline-card__name" id="player-front-name">-</div>
+                        <div class="frontline-card__element" id="player-front-element">
+                          <span class="frontline-card__element-icon" id="player-front-element-icon">?</span>
+                          <span class="frontline-card__element-label" id="player-front-element-label">-</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="frontline-card__status" id="player-front-status"></div>
                     <div class="frontline-card__gauges">
-                      <div class="gauge gauge--hp gauge--front">
+                      <div class="gauge gauge--hp gauge--front" id="player-front-hp-gauge">
                         <div class="gauge__label">
                           <span data-i18n="hp_label">HP</span>
                           <span id="player-front-hp-text">0/0</span>
@@ -74,7 +83,7 @@
                           <div id="player-front-hp-bar" class="gauge__fill"></div>
                         </div>
                       </div>
-                      <div class="gauge gauge--st gauge--front">
+                      <div class="gauge gauge--st gauge--front" id="player-front-st-gauge">
                         <div class="gauge__label">
                           <span data-i18n="st_label">ST</span>
                           <span id="player-front-st-text">0/0</span>
@@ -84,8 +93,39 @@
                         </div>
                       </div>
                     </div>
+                    <details class="frontline-card__stats-panel" id="player-front-stats-panel" open>
+                      <summary data-i18n="stats_label">Stats</summary>
+                      <div class="frontline-card__stats" id="player-front-stats">
+                        <div class="stat stat--atk">
+                          <span class="stat__icon" aria-hidden="true">⚔️</span>
+                          <span class="stat__label">ATK</span>
+                          <span class="stat__value" id="player-front-atk">0</span>
+                        </div>
+                        <div class="stat stat--def">
+                          <span class="stat__icon" aria-hidden="true">🛡️</span>
+                          <span class="stat__label">DEF</span>
+                          <span class="stat__value" id="player-front-def">0</span>
+                        </div>
+                        <div class="stat stat--mag">
+                          <span class="stat__icon" aria-hidden="true">✨</span>
+                          <span class="stat__label">MAG</span>
+                          <span class="stat__value" id="player-front-mag">0</span>
+                        </div>
+                        <div class="stat stat--spd">
+                          <span class="stat__icon" aria-hidden="true">💨</span>
+                          <span class="stat__label">SPD</span>
+                          <span class="stat__value" id="player-front-spd">0</span>
+                        </div>
+                      </div>
+                    </details>
+                    <div class="frontline-card__buffs" id="player-front-buffs" aria-label="Buffs and debuffs">
+                      <span class="buff-slot" aria-hidden="true"></span>
+                      <span class="buff-slot" aria-hidden="true"></span>
+                      <span class="buff-slot" aria-hidden="true"></span>
+                      <span class="buff-slot" aria-hidden="true"></span>
+                    </div>
                   </article>
-                  <div class="backline-grid" id="player-backline" role="list"></div>
+                  <div class="backline-grid" id="player-backline" role="list" aria-label="Player backline"></div>
                 </div>
               </section>
 
@@ -95,9 +135,19 @@
                 </header>
                 <div class="party__field party__field--enemy">
                   <article class="frontline-card frontline-card--enemy" id="enemy-front-card">
-                    <div class="frontline-card__name" id="enemy-front-name">-</div>
+                    <div class="frontline-card__header">
+                      <span class="frontline-card__badge" aria-hidden="true">[FRONT]</span>
+                      <div class="frontline-card__identity">
+                        <div class="frontline-card__name" id="enemy-front-name">-</div>
+                        <div class="frontline-card__element" id="enemy-front-element">
+                          <span class="frontline-card__element-icon" id="enemy-front-element-icon">?</span>
+                          <span class="frontline-card__element-label" id="enemy-front-element-label">-</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="frontline-card__status" id="enemy-front-status"></div>
                     <div class="frontline-card__gauges">
-                      <div class="gauge gauge--hp gauge--front">
+                      <div class="gauge gauge--hp gauge--front" id="enemy-front-hp-gauge">
                         <div class="gauge__label">
                           <span data-i18n="hp_label">HP</span>
                           <span id="enemy-front-hp-text">0/0</span>
@@ -107,8 +157,39 @@
                         </div>
                       </div>
                     </div>
+                    <details class="frontline-card__stats-panel" id="enemy-front-stats-panel" open>
+                      <summary data-i18n="stats_label">Stats</summary>
+                      <div class="frontline-card__stats" id="enemy-front-stats">
+                        <div class="stat stat--atk">
+                          <span class="stat__icon" aria-hidden="true">⚔️</span>
+                          <span class="stat__label">ATK</span>
+                          <span class="stat__value" id="enemy-front-atk">0</span>
+                        </div>
+                        <div class="stat stat--def">
+                          <span class="stat__icon" aria-hidden="true">🛡️</span>
+                          <span class="stat__label">DEF</span>
+                          <span class="stat__value" id="enemy-front-def">0</span>
+                        </div>
+                        <div class="stat stat--mag">
+                          <span class="stat__icon" aria-hidden="true">✨</span>
+                          <span class="stat__label">MAG</span>
+                          <span class="stat__value" id="enemy-front-mag">0</span>
+                        </div>
+                        <div class="stat stat--spd">
+                          <span class="stat__icon" aria-hidden="true">💨</span>
+                          <span class="stat__label">SPD</span>
+                          <span class="stat__value" id="enemy-front-spd">0</span>
+                        </div>
+                      </div>
+                    </details>
+                    <div class="frontline-card__buffs" id="enemy-front-buffs" aria-label="Buffs and debuffs">
+                      <span class="buff-slot" aria-hidden="true"></span>
+                      <span class="buff-slot" aria-hidden="true"></span>
+                      <span class="buff-slot" aria-hidden="true"></span>
+                      <span class="buff-slot" aria-hidden="true"></span>
+                    </div>
                   </article>
-                  <div class="backline-grid backline-grid--enemy" id="enemy-backline" role="list"></div>
+                  <div class="backline-grid backline-grid--enemy" id="enemy-backline" role="list" aria-label="Enemy backline"></div>
                 </div>
               </section>
             </div>
